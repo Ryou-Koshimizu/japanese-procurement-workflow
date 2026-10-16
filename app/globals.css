@@ -1045,8 +1045,14 @@ table.list {
 }
 .stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-content: start;
+}
+/* Grid items default to their content's width; let wide tables scroll inside. */
+.order-layout > *,
+.catalog-layout > * {
+  min-width: 0;
 }
 .kv {
   display: grid;
@@ -1193,6 +1199,9 @@ table.list {
   text-align: right;
   min-height: 36px;
   padding: 5px 9px;
+}
+.lines .name {
+  min-width: 11em;
 }
 .lines .item-cell {
   display: flex;

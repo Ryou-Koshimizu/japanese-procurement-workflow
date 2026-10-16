@@ -114,7 +114,7 @@ export function QuoteEditor({
                     }}
                   />
                 </td>
-                <td>
+                <td className="name">
                   {l.name}
                   <span className="meta-line" style={{ display: 'block' }}>
                     参考 {yen(l.referencePrice)}・依頼 {l.requestedQty}

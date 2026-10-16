@@ -1,6 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export function Stepper({
   value,
@@ -94,11 +95,15 @@ export default function AddToCart({
       >
         カートに入れる
       </button>
-      {message && (
-        <div className="toast" role="status">
-          {message}
-        </div>
-      )}
+      {message &&
+        // On the page itself: inside the frosted card, position: fixed would
+        // be relative to the card (backdrop-filter makes it the containing block).
+        createPortal(
+          <div className="toast" role="status">
+            {message}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

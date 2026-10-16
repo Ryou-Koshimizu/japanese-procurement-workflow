@@ -74,7 +74,7 @@ function QuoteView({ q, order }: { q: Quote; order: OrderDetail }) {
           <tbody>
             {q.lines.map((l) => (
               <tr key={l.order_line_id}>
-                <td>
+                <td className="name">
                   {l.name}
                   <span className="meta-line" style={{ display: 'block' }}>
                     {l.sku}
@@ -103,7 +103,7 @@ function QuoteView({ q, order }: { q: Quote; order: OrderDetail }) {
             ))}
             {excluded.map((l) => (
               <tr key={l.id} className="excluded">
-                <td>
+                <td className="name">
                   {l.name}
                   <span className="meta-line" style={{ display: 'block' }}>
                     今回の見積には含みません
