@@ -4,10 +4,11 @@
 
 [![CI](https://github.com/Ryou-Koshimizu/japanese-procurement-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/Ryou-Koshimizu/japanese-procurement-workflow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![公開デモ](https://img.shields.io/badge/%E5%85%AC%E9%96%8B%E3%83%87%E3%83%A2-%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6%E3%81%A7%E9%96%8B%E3%81%8F-0f766e)](https://japanese-procurement-workflow.vercel.app)
 
 ![店舗がカタログから依頼 → 本社が承認して見積を送付 → 店舗が承諾して発注確定、金額が双方に届く](docs/assets/demo.gif)
 
-上は手元で動かした公開デモの実画面です。会社・店舗・仕入先・商品はすべて架空で、カタログは同梱の架空の仕入先サイトから、実際のサイトと同じ処理で取り込んでいます。
+上は公開デモの実画面です。会社・店舗・仕入先・商品はすべて架空で、カタログは同梱の架空の仕入先サイトから、実際のサイトと同じ処理で取り込んでいます。
 
 <p>
   <img src="docs/assets/order-desktop.webp" alt="発注依頼の画面：見積の明細と税率ごとの合計、右に合意までの流れ" width="68%">
@@ -35,6 +36,10 @@
 詳しくは [検証記録](docs/verification.md)。提出・レビュー向けの説明は [業務シナリオと導入条件](docs/freelance-submission.md)。
 
 ## 試す
+
+### ブラウザで（インストール不要）
+
+**<https://japanese-procurement-workflow.vercel.app>** を開き、役割を選んでログインします。会社・仕入先・商品はすべて架空で、メールは送らず画面の「通知」に表示します。データは閲覧者で共有され、1日ごと（または管理者の「デモを初期化」）に元に戻ります。架空の仕入先サイトは <https://japanese-procurement-workflow.vercel.app/demo-supplier/> です。
 
 ### 手元で（DB・APIキー不要）
 
