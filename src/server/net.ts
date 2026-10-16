@@ -9,7 +9,7 @@ import dns from 'node:dns';
 import http from 'node:http';
 import https from 'node:https';
 import zlib from 'node:zlib';
-import type { Readable } from 'node:stream';
+import { pipeline, type Readable } from 'node:stream';
 
 export const USER_AGENT =
   'ProcurementCatalogBot/0.1 (+https://github.com/Ryou-Koshimizu/japanese-procurement-workflow)';
@@ -49,6 +49,8 @@ for (const [net, prefix] of [
   ['::', 128],
   ['::1', 128],
   ['::', 96], // IPv4-compatible (deprecated)
+  ['::ffff:0:0:0', 96], // IPv4-translated (::ffff:0:a.b.c.d)
+  ['64:ff9b:1::', 48], // local-use NAT64
   ['100::', 64],
   ['2001::', 32], // Teredo
   ['2001:2::', 48],
@@ -194,32 +196,50 @@ export type Fetcher = (
 
 const MAX_REDIRECTS = 5;
 
-function readLimited(stream: Readable, maxBytes: number): Promise<Buffer> {
+const tooLarge = (maxBytes: number) =>
+  new FetchError(
+    `${Math.round(maxBytes / 1024)}KBを超えるため読み込みを止めました`,
+    'too_large',
+  );
+
+/**
+ * Collect a body up to maxBytes. Settles exactly once: on the end, on an
+ * error, or when the stream closes early (a dropped connection or the
+ * timeout), so a half-sent body never leaves the import waiting.
+ */
+function readLimited(
+  stream: Readable,
+  maxBytes: number,
+  signal: AbortSignal,
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
-    stream.on('data', (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > maxBytes) {
-        stream.destroy();
-        reject(
-          new FetchError(
-            `${Math.round(maxBytes / 1024)}KBを超えるため読み込みを止めました`,
-            'too_large',
-          ),
-        );
-        return;
-      }
-      chunks.push(chunk);
-    });
-    stream.on('end', () => resolve(Buffer.concat(chunks)));
-    stream.on('error', (e) =>
+    let settled = false;
+    const fail = (e: unknown) => {
+      if (settled) return;
+      settled = true;
+      stream.destroy();
       reject(
         e instanceof FetchError
           ? e
-          : new FetchError('通信が途中で切れました', 'network'),
-      ),
-    );
+          : signal.aborted
+            ? new FetchError('応答が遅いため中止しました', 'timeout')
+            : new FetchError('通信が途中で切れました', 'network'),
+      );
+    };
+    stream.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > maxBytes) fail(tooLarge(maxBytes));
+      else chunks.push(chunk);
+    });
+    stream.on('end', () => {
+      if (settled) return;
+      settled = true;
+      resolve(Buffer.concat(chunks));
+    });
+    stream.on('error', fail);
+    stream.on('close', () => fail(null));
   });
 }
 
@@ -259,27 +279,25 @@ function once(
         const declared = Number(res.headers['content-length'] ?? 0);
         if (declared > options.maxBytes) {
           res.destroy();
-          reject(
-            new FetchError(
-              `${Math.round(options.maxBytes / 1024)}KBを超えるため読み込みませんでした`,
-              'too_large',
-            ),
-          );
+          reject(tooLarge(options.maxBytes));
           return;
         }
         const encoding = String(
           res.headers['content-encoding'] ?? '',
         ).toLowerCase();
-        let stream: Readable = res;
-        if (encoding === 'gzip' || encoding === 'x-gzip')
-          stream = res.pipe(zlib.createGunzip());
-        else if (encoding === 'deflate')
-          stream = res.pipe(zlib.createInflate());
-        else if (encoding === 'br')
-          stream = res.pipe(zlib.createBrotliDecompress());
-        // The limit applies to the decompressed size too (no zip bombs).
-        readLimited(stream, options.maxBytes).then(
-          (body) => resolve({ status, headers: res.headers, body }),
+        const decoder =
+          encoding === 'gzip' || encoding === 'x-gzip'
+            ? zlib.createGunzip()
+            : encoding === 'deflate'
+              ? zlib.createInflate()
+              : encoding === 'br'
+                ? zlib.createBrotliDecompress()
+                : null;
+        // pipeline() hands an error or early close of the response on to the
+        // decoder. The size limit applies after decompression (no zip bombs).
+        const body: Readable = decoder ? pipeline(res, decoder, () => {}) : res;
+        readLimited(body, options.maxBytes, signal).then(
+          (data) => resolve({ status, headers: res.headers, body: data }),
           (e) => {
             res.destroy();
             reject(e);

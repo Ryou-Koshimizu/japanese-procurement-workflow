@@ -33,23 +33,29 @@ const ENTITIES: Record<string, string> = {
 };
 
 export function decodeEntities(s: string): string {
-  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
-    if (e[0] === '#') {
-      const code =
-        e[1] === 'x' || e[1] === 'X'
-          ? parseInt(e.slice(2), 16)
-          : parseInt(e.slice(1), 10);
-      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : m;
-    }
-    return ENTITIES[e.toLowerCase()] ?? m;
-  });
+  return s.replace(
+    /&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{1,10});/gi,
+    (m, e: string) => {
+      if (e[0] === '#') {
+        const code =
+          e[1] === 'x' || e[1] === 'X'
+            ? parseInt(e.slice(2), 16)
+            : parseInt(e.slice(1), 10);
+        return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : m;
+      }
+      return ENTITIES[e.toLowerCase()] ?? m;
+    },
+  );
 }
 
 /** Plain text: no tags, no control characters, single spaces, at most max chars. */
 export function cleanText(value: unknown, max: number): string | undefined {
   if (typeof value === 'number') value = String(value);
   if (typeof value !== 'string') return undefined;
-  const text = decodeEntities(value.replace(/<[^>]*>/g, ' '))
+  // [^<>] keeps tag removal linear; the cut keeps hostile long values cheap.
+  const text = decodeEntities(
+    value.slice(0, max * 8 + 200).replace(/<[^<>]*>/g, ' '),
+  )
     .replace(
       /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/g,
       ' ',

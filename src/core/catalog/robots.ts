@@ -54,18 +54,27 @@ export function parseRobots(text: string, productToken: string): Robots {
   };
 }
 
-function matches(pattern: string, path: string): boolean {
+/**
+ * Whether a robots.txt path pattern matches: '*' stands for any run of
+ * characters and a trailing '$' anchors the end. Matched part by part with
+ * indexOf (leftmost is always right for '*'-only patterns), so a hostile
+ * pattern like "/*a*a*a*b" cannot make it slow.
+ */
+export function matches(pattern: string, path: string): boolean {
   const anchored = pattern.endsWith('$');
-  const body = anchored ? pattern.slice(0, -1) : pattern;
-  const re = new RegExp(
-    '^' +
-      body
-        .split('*')
-        .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
-        .join('.*') +
-      (anchored ? '$' : ''),
-  );
-  return re.test(path);
+  const parts = (anchored ? pattern.slice(0, -1) : pattern).split('*');
+  if (!path.startsWith(parts[0])) return false;
+  let pos = parts[0].length;
+  if (parts.length === 1) return anchored ? pos === path.length : true;
+  for (let k = 1; k < parts.length - 1; k++) {
+    const at = path.indexOf(parts[k], pos);
+    if (at === -1) return false;
+    pos = at + parts[k].length;
+  }
+  const last = parts[parts.length - 1];
+  return anchored
+    ? path.length - last.length >= pos && path.endsWith(last)
+    : path.indexOf(last, pos) !== -1;
 }
 
 /** Longest matching rule wins; Allow wins a tie. */

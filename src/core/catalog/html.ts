@@ -42,12 +42,81 @@ const PRODUCT_TYPES = new Set([
 ]);
 const LIST_TYPES = new Set(['itemlist', 'offercatalog']);
 
+// Tags are found with indexOf, never with patterns like <x[^>]*>: on a page
+// of thousands of unclosed "<meta" those take quadratic time.
+const MAX_TAG = 4000;
+
+/** Opening tags named `name`, in order, in time linear in the page size. */
+function* openTags(html: string, lower: string, name: string) {
+  const open = `<${name}`;
+  let i = 0;
+  let nextGt = -1;
+  while ((i = lower.indexOf(open, i)) !== -1) {
+    const after = lower[i + open.length];
+    if (after === undefined) return;
+    if (!/[\s/>]/.test(after)) {
+      i += open.length;
+      continue;
+    }
+    if (nextGt < i) nextGt = lower.indexOf('>', i);
+    if (nextGt === -1) return;
+    if (nextGt - i > MAX_TAG) {
+      i += open.length;
+      continue;
+    }
+    yield { tag: html.slice(i, nextGt + 1), end: nextGt + 1 };
+    i = nextGt + 1;
+  }
+}
+
+/** Attribute names (lower case) and values of one tag, in one pass. */
+export function attributes(tag: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const n = tag.length;
+  let i = 1;
+  while (i < n && !/[\s/>]/.test(tag[i])) i++; // the tag name
+  while (i < n) {
+    while (i < n && /[\s/]/.test(tag[i])) i++;
+    if (i >= n || tag[i] === '>') break;
+    const start = i;
+    while (i < n && !/[\s=/>]/.test(tag[i])) i++;
+    const name = tag.slice(start, i).toLowerCase();
+    while (i < n && /\s/.test(tag[i])) i++;
+    if (tag[i] !== '=') {
+      if (name && !(name in out)) out[name] = '';
+      continue;
+    }
+    i++;
+    while (i < n && /\s/.test(tag[i])) i++;
+    let value = '';
+    const quote = tag[i];
+    if (quote === '"' || quote === "'") {
+      const close = tag.indexOf(quote, i + 1);
+      value = tag.slice(i + 1, close === -1 ? n : close);
+      i = close === -1 ? n : close + 1;
+    } else {
+      const v = i;
+      while (i < n && !/[\s>]/.test(tag[i])) i++;
+      value = tag.slice(v, i);
+    }
+    if (name && !(name in out)) out[name] = value;
+  }
+  return out;
+}
+
 export function jsonLdBlocks(html: string): unknown[] {
   const out: unknown[] = [];
-  const re =
-    /<script\b[^>]*\btype\s*=\s*(?:"application\/ld\+json"|'application\/ld\+json'|application\/ld\+json)[^>]*>([\s\S]*?)<\/script\s*>/gi;
-  for (const m of html.matchAll(re)) {
-    const raw = m[1]
+  const lower = html.toLowerCase();
+  let from = 0;
+  for (const { tag, end } of openTags(html, lower, 'script')) {
+    if (end <= from) continue;
+    const type = attributes(tag).type?.trim().toLowerCase();
+    if (type !== 'application/ld+json') continue;
+    const close = lower.indexOf('</script', end);
+    if (close === -1) break;
+    from = close;
+    const raw = html
+      .slice(end, close)
       .trim()
       .replace(/^<!--/, '')
       .replace(/-->$/, '')
@@ -299,19 +368,10 @@ export function parseProductPage(html: string, pageUrl: string): PageResult {
   return { products, links: [...new Set(links)], skipped };
 }
 
-function attributes(tag: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const m of tag.matchAll(
-    /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g,
-  ))
-    out[m[1].toLowerCase()] = m[2] ?? m[3] ?? m[4] ?? '';
-  return out;
-}
-
 function metaTags(html: string): Map<string, string> {
   const meta = new Map<string, string>();
-  for (const m of html.matchAll(/<meta\b[^>]*>/gi)) {
-    const a = attributes(m[0]);
+  for (const { tag } of openTags(html, html.toLowerCase(), 'meta')) {
+    const a = attributes(tag);
     const key = (a.property ?? a.name ?? '').toLowerCase();
     if (key && a.content !== undefined && !meta.has(key))
       meta.set(key, a.content);
@@ -320,8 +380,8 @@ function metaTags(html: string): Map<string, string> {
 }
 
 function canonicalUrl(html: string, base: string): string | undefined {
-  for (const m of html.matchAll(/<link\b[^>]*>/gi)) {
-    const a = attributes(m[0]);
+  for (const { tag } of openTags(html, html.toLowerCase(), 'link')) {
+    const a = attributes(tag);
     if (a.rel?.toLowerCase() === 'canonical') return absoluteUrl(a.href, base);
   }
   return undefined;
