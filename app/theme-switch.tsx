@@ -31,6 +31,9 @@ export default function ThemeSwitch({
   useEffect(() => {
     const saved = document.documentElement.getAttribute('data-theme');
     setTheme(saved === 'light' || saved === 'dark' ? saved : 'auto');
+    // Every screen has this switch, so this also says the page is now
+    // interactive (tests wait for it before pressing buttons).
+    document.documentElement.setAttribute('data-ready', '');
   }, []);
   return (
     <div
