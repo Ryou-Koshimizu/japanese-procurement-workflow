@@ -64,7 +64,7 @@
 
 ## 公開デモ
 
-2026-10-16、Vercelに公開したデモ（<https://japanese-procurement-workflow.vercel.app>、共有DBはNeon）に対して `E2E_BASE_URL=https://japanese-procurement-workflow.vercel.app npx playwright test` を実行し、7件すべて成功（ダークモードの検査を足す前の時点）。実行後に管理者の「デモを初期化」で初期の状態（依頼4件）に戻しました。応答にCSP・HSTS・`X-Frame-Options: DENY` が付くことも確認しています。
+2026-10-16、Vercelに公開したデモ（<https://japanese-procurement-workflow.vercel.app>、共有DBはNeon）に対して `E2E_BASE_URL=https://japanese-procurement-workflow.vercel.app npx playwright test` を実行し、8件すべて成功（ガラスのUIに作り替えた後、ライト・ダークのアクセシビリティ検査を含む）。実行の前後に管理者の「デモを初期化」で初期の状態（依頼4件）に戻しています。デプロイ先では画面がまだ操作できる状態になる前（Reactの水和の前）にテストのクリックが届いて取りこぼすことがあったため、画面が操作できるようになった印（`data-ready`）を待ってから押すようにしました。応答にCSP・HSTS・`X-Frame-Options: DENY` が付くことも確認しています。
 
 ## 実在の通販サイトでの確認
 
