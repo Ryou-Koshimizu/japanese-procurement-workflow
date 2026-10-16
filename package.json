@@ -1,0 +1,44 @@
+{
+  "name": "japanese-procurement-workflow",
+  "version": "0.1.0",
+  "description": "Store-to-headquarters supply ordering: catalog import from a supplier site, quotes, two-party agreement and purchase orders with amount notifications",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "db:up": "docker compose up -d --wait",
+    "supplier:build": "tsx scripts/build-demo-supplier.ts",
+    "org:create": "tsx --env-file=.env.local scripts/create-org.ts",
+    "outbox:send": "tsx --env-file=.env.local scripts/send-outbox.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.9",
+    "@fontsource-variable/noto-sans-jp": "^5.3.1",
+    "next": "^16.4.0",
+    "nodemailer": "10.0.13",
+    "pg": "^8.23.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  }
+}

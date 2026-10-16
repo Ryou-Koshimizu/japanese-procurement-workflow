@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:${POSTGRES_VERSION:-17}
+    environment:
+      POSTGRES_PASSWORD: postgres_local_only
+      POSTGRES_DB: procurement
+    ports:
+      - '127.0.0.1:54326:5432'
+    volumes:
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/local-roles.sql:/docker-entrypoint-initdb.d/02-roles.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d procurement']
+      interval: 2s
+      timeout: 3s
+      retries: 30
