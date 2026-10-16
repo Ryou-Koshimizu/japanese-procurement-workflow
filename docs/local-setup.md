@@ -24,6 +24,7 @@ npm run dev
    CREATE ROLE procurement_app LOGIN PASSWORD '...' NOSUPERUSER NOBYPASSRLS NOINHERIT;
    GRANT procurement_user TO procurement_app WITH INHERIT FALSE, SET TRUE;
    GRANT procurement_mailer TO procurement_app WITH INHERIT FALSE, SET TRUE;
+   GRANT procurement_auth TO procurement_app WITH INHERIT FALSE, SET TRUE;
    ```
 
    アプリは起動時に、この接続がスーパーユーザー・BYPASSRLS・テーブルの所有者でないことを確かめ、そうでなければ起動しません。
