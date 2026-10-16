@@ -4,7 +4,7 @@
 
 公開デモ（`APP_MODE=demo`）は、架空の仕入先「さくら備品サプライ」のサイトを `public/demo-supplier/` に同梱し、予約済みのドメイン `https://sakura-supply.example` のURLをそのファイルに対応づけて読む。取り込みの処理（robots.txt・一覧からの巡回・JSON-LDの読み取り・画像の判定）は実運用と同じで、ネットワークに出る部分だけを差し替えている。それ以外のURLは取り込めない。
 
-架空のサイトは `npm run supplier:build` が `src/demo/supplier-data.ts` から作る。商品の絵はSVGで描いてChromiumで書き出し、WebPにしている。メールは送らず、送る予定だった内容を画面の「通知」に出す。
+架空のサイトは `npm run supplier:build` が `src/demo/supplier-data.ts` から作る。商品写真は ChatGPT（OpenAIの画像生成）で6枚ずつ格子状に作らせて切り出したもので、プロンプトは `scripts/demo-supplier/photo-prompts/` に残している（文字・ロゴ・手・人物を禁止し、全23枚を目で確かめた）。メールは送らず、送る予定だった内容を画面の「通知」に出す。
 
 ## 理由
 

@@ -1,14 +1,14 @@
 # 検証記録
 
-2026-10-16、macOS（Node.js 24）で次を実行し、すべて成功しました。画面は電話の幅（390px）でも全10画面で横にはみ出さないことを確かめています。CIでは同じ内容をUbuntu・Node.js 22で毎回実行します（実PostgreSQLは16と17の両方）。
+2026-10-16、macOS（Node.js 24）で次を実行し、すべて成功しました。画面は電話の幅（390px）でも全10画面で横にはみ出さないことを確かめています（ガラスのUIに作り替えた後も、主な画面をライト・ダーク・電話の幅で撮って目で確かめました）。CIでは同じ内容をUbuntu・Node.js 22で毎回実行します（実PostgreSQLは16と17の両方）。
 
-| 確認                 | コマンド                                                     | 結果                                                   |
-| -------------------- | ------------------------------------------------------------ | ------------------------------------------------------ |
-| 型                   | `npm run typecheck`                                          | エラー0                                                |
-| 単体・DB（PGlite）   | `npm test`                                                   | 107件成功（実PostgreSQLの6件は環境変数がないため省略） |
-| 実PostgreSQL 17.11   | `RUN_POSTGRES_TESTS=1 npx vitest run tests/postgres.test.ts` | 6件成功                                                |
-| 本番ビルドとブラウザ | `npm run test:e2e`                                           | 7件成功、axeでWCAG 2.1 A/AA違反0件（5画面）            |
-| 書式                 | `npm run format:check`                                       | 差分なし                                               |
+| 確認                 | コマンド                                                     | 結果                                                           |
+| -------------------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
+| 型                   | `npm run typecheck`                                          | エラー0                                                        |
+| 単体・DB（PGlite）   | `npm test`                                                   | 107件成功（実PostgreSQLの6件は環境変数がないため省略）         |
+| 実PostgreSQL 17.11   | `RUN_POSTGRES_TESTS=1 npx vitest run tests/postgres.test.ts` | 6件成功                                                        |
+| 本番ビルドとブラウザ | `npm run test:e2e`                                           | 8件成功、axeでWCAG 2.1 A/AA違反0件（ライト5画面・ダーク3画面） |
+| 書式                 | `npm run format:check`                                       | 差分なし                                                       |
 
 ## 何を確かめているか
 
@@ -64,7 +64,7 @@
 
 ## 公開デモ
 
-2026-10-16、Vercelに公開したデモ（<https://japanese-procurement-workflow.vercel.app>、共有DBはNeon）に対して `E2E_BASE_URL=https://japanese-procurement-workflow.vercel.app npx playwright test` を実行し、7件すべて成功。実行後に管理者の「デモを初期化」で初期の状態（依頼4件）に戻しました。応答にCSP・HSTS・`X-Frame-Options: DENY` が付くことも確認しています。
+2026-10-16、Vercelに公開したデモ（<https://japanese-procurement-workflow.vercel.app>、共有DBはNeon）に対して `E2E_BASE_URL=https://japanese-procurement-workflow.vercel.app npx playwright test` を実行し、7件すべて成功（ダークモードの検査を足す前の時点）。実行後に管理者の「デモを初期化」で初期の状態（依頼4件）に戻しました。応答にCSP・HSTS・`X-Frame-Options: DENY` が付くことも確認しています。
 
 ## 実在の通販サイトでの確認
 
