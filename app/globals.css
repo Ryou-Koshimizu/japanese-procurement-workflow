@@ -2407,3 +2407,10 @@ table.list {
   padding: 24px max(16px, env(safe-area-inset-right, 0px)) 24px
     max(16px, env(safe-area-inset-left, 0px));
 }
+@media (max-width: 860px) {
+  /* The top bar sits over scrolling content: use the denser tint so what
+     passes under it never competes with the title. */
+  .side.pane::before {
+    background: var(--glass-tint), var(--glass-strong);
+  }
+}

@@ -398,22 +398,22 @@ export default async function OrderPage({
               <span className="amount num">{yen(order.ordered_total)}</span>
               <div className="sign">
                 <div>
-                  <small>本社の承認</small>
+                  <small>本社の承認（見積 第{accepted.version}版）</small>
                   <span>
-                    本社の承認：{accepted.issued_by_name}（
-                    {formatDateTime(accepted.issued_at)}・見積 第
-                    {accepted.version}版）
+                    <span className="sr-only">本社の承認：</span>
+                    {accepted.issued_by_name}・
+                    {formatDateTime(accepted.issued_at)}
                   </span>
                 </div>
                 <div>
                   <small>店舗の承諾</small>
                   <span>
-                    店舗の承諾：{accepted.responded_by_name}（
-                    {formatDateTime(accepted.responded_at)}）
+                    <span className="sr-only">店舗の承諾：</span>
+                    {accepted.responded_by_name}・
+                    {formatDateTime(accepted.responded_at)}
                   </span>
                 </div>
               </div>
-              {delivered && <span className="meta-line">{delivered}</span>}
             </section>
           )}
           {order.status === 'requested' && order.revision_note && (
