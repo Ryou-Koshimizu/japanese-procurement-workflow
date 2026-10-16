@@ -1,7 +1,8 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Check, LoaderCircle, Minus, Plus, ShoppingCart } from 'lucide-react';
 
 export function Stepper({
   value,
@@ -22,7 +23,7 @@ export function Stepper({
         aria-label={`${label}の数量を減らす`}
         onClick={() => set(value - 1)}
       >
-        −
+        <Minus className="icon sm" aria-hidden="true" />
       </button>
       <input
         type="number"
@@ -38,9 +39,31 @@ export function Stepper({
         aria-label={`${label}の数量を増やす`}
         onClick={() => set(value + 1)}
       >
-        ＋
+        <Plus className="icon sm" aria-hidden="true" />
       </button>
     </span>
+  );
+}
+
+/** A short confirmation at the bottom of the screen (announced politely). */
+export function Toast({
+  message,
+  ok = true,
+}: {
+  message: string;
+  ok?: boolean;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted || !message) return null;
+  // On the page body: inside a frosted card, position: fixed would be
+  // relative to the card (backdrop-filter makes it the containing block).
+  return createPortal(
+    <div className="toast" role="status">
+      {ok && <Check className="icon" aria-hidden="true" />}
+      {message}
+    </div>,
+    document.body,
   );
 }
 
@@ -57,6 +80,7 @@ export default function AddToCart({
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [ok, setOk] = useState(true);
   if (disabled)
     return (
       <div className="add">
@@ -81,6 +105,7 @@ export default function AddToCart({
           });
           const body = await r.json().catch(() => ({}));
           setBusy(false);
+          setOk(r.ok);
           setMessage(
             r.ok
               ? `カートに入れました：${name} × ${qty}`
@@ -93,17 +118,14 @@ export default function AddToCart({
           setTimeout(() => setMessage(''), 3500);
         }}
       >
+        {busy ? (
+          <LoaderCircle className="icon spin" aria-hidden="true" />
+        ) : (
+          <ShoppingCart className="icon" aria-hidden="true" />
+        )}
         カートに入れる
       </button>
-      {message &&
-        // On the page itself: inside the frosted card, position: fixed would
-        // be relative to the card (backdrop-filter makes it the containing block).
-        createPortal(
-          <div className="toast" role="status">
-            {message}
-          </div>,
-          document.body,
-        )}
+      <Toast message={message} ok={ok} />
     </div>
   );
 }

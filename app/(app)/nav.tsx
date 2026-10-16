@@ -1,6 +1,26 @@
 'use client';
 import { usePathname } from 'next/navigation';
+import {
+  Bell,
+  ListChecks,
+  PackageSearch,
+  ScrollText,
+  ShoppingCart,
+  Store,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import type { Role } from '../../src/core/workflow';
+
+type Item = {
+  href: string;
+  label: string;
+  Icon: LucideIcon;
+  count?: number;
+  what?: string;
+  /** Left out of the phone tab bar, which keeps to five items. */
+  wideOnly?: boolean;
+};
 
 export default function Nav({
   role,
@@ -12,47 +32,75 @@ export default function Nav({
   cart: number;
 }) {
   const path = usePathname();
-  const items: {
-    href: string;
-    label: string;
-    count?: number;
-    what?: string;
-  }[] =
+  const items: Item[] =
     role === 'store'
       ? [
-          { href: '/catalog', label: 'カタログ' },
-          { href: '/cart', label: 'カート', count: cart, what: 'カートの数量' },
-          { href: '/', label: '依頼一覧', count: todo, what: '承諾待ちの見積' },
-          { href: '/notifications', label: '通知' },
+          { href: '/catalog', label: 'カタログ', Icon: Store },
+          {
+            href: '/cart',
+            label: 'カート',
+            Icon: ShoppingCart,
+            count: cart,
+            what: 'カートの数量',
+          },
+          {
+            href: '/',
+            label: '依頼一覧',
+            Icon: ListChecks,
+            count: todo,
+            what: '承諾待ちの見積',
+          },
+          { href: '/notifications', label: '通知', Icon: Bell },
         ]
       : [
-          { href: '/', label: '依頼一覧', count: todo, what: '見積待ちの依頼' },
-          { href: '/catalog', label: 'カタログ' },
+          {
+            href: '/',
+            label: '依頼一覧',
+            Icon: ListChecks,
+            count: todo,
+            what: '見積待ちの依頼',
+          },
+          {
+            href: '/catalog',
+            label: 'カタログ',
+            Icon: Store,
+            wideOnly: role === 'admin',
+          },
           ...(role === 'admin'
             ? [
-                { href: '/admin/catalog', label: 'カタログ管理' },
-                { href: '/admin/members', label: '店舗とメンバー' },
-                { href: '/admin/audit', label: '監査ログ' },
+                {
+                  href: '/admin/catalog',
+                  label: 'カタログ管理',
+                  Icon: PackageSearch,
+                },
+                {
+                  href: '/admin/members',
+                  label: '店舗とメンバー',
+                  Icon: Users,
+                },
+                { href: '/admin/audit', label: '監査ログ', Icon: ScrollText },
               ]
             : []),
-          { href: '/notifications', label: '通知' },
+          { href: '/notifications', label: '通知', Icon: Bell },
         ];
   const active = (href: string) =>
     href === '/'
       ? path === '/' || path.startsWith('/orders')
       : path === href || path.startsWith(`${href}/`);
   return (
-    <nav aria-label="メニュー">
-      {items.map((i) => (
+    <nav className="nav" aria-label="メニュー">
+      {items.map(({ href, label, Icon, count, what, wideOnly }) => (
         <a
-          key={i.href}
-          href={i.href}
-          aria-current={active(i.href) ? 'page' : undefined}
+          key={href}
+          href={href}
+          aria-current={active(href) ? 'page' : undefined}
+          className={wideOnly ? 'wide-only' : undefined}
         >
-          {i.label}
-          {!!i.count && (
-            <span className="count" aria-label={`${i.what} ${i.count}`}>
-              {i.count}
+          <Icon className="icon" aria-hidden="true" />
+          <span className="label">{label}</span>
+          {!!count && (
+            <span className="count" aria-label={`${what} ${count}`}>
+              {count}
             </span>
           )}
         </a>

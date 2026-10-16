@@ -4,6 +4,7 @@ import { runtime } from '../../../../src/server/runtime';
 import { listCatalog, listSources } from '../../../../src/server/service';
 import { localDemoSupplierUrl } from '../../../../src/server/demo-supplier';
 import { DEMO_SUPPLIER } from '../../../../src/demo/supplier-data';
+import { Info, PackageSearch, Tag } from 'lucide-react';
 import { SourceCard, NewSource, ItemRow } from './controls';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,10 @@ export default async function AdminCatalogPage() {
     <>
       <div className="page-head">
         <div>
+          <span className="eyebrow">
+            <PackageSearch className="icon sm" aria-hidden="true" />
+            本社 管理者
+          </span>
           <h1>カタログ管理</h1>
           <p className="sub">
             仕入先のサイトに載っている商品データ（schema.org の
@@ -28,15 +33,18 @@ export default async function AdminCatalogPage() {
       </div>
       {deps.demo && (
         <p className="notice" style={{ marginBottom: 16 }}>
-          公開デモでは、同梱の架空の仕入先サイト（{DEMO_SUPPLIER.origin}、
-          <a
-            href={`${DEMO_SUPPLIER.localPath}/index.html`}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            このアプリ内で表示
-          </a>
-          ）だけを取り込めます。読み取りは実際のサイトと同じ処理で、外部には接続しません。
+          <Info className="icon" aria-hidden="true" />
+          <span>
+            公開デモでは、同梱の架空の仕入先サイト（{DEMO_SUPPLIER.origin}、
+            <a
+              href={`${DEMO_SUPPLIER.localPath}/index.html`}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              このアプリ内で表示
+            </a>
+            ）だけを取り込めます。読み取りは実際のサイトと同じ処理で、外部には接続しません。
+          </span>
         </p>
       )}
       <div className="stack">
@@ -53,7 +61,10 @@ export default async function AdminCatalogPage() {
         />
         <section className="card" aria-labelledby="items-heading">
           <div className="pad" style={{ paddingBottom: 0 }}>
-            <h2 id="items-heading">商品（{items.length}件）</h2>
+            <h2 id="items-heading">
+              <Tag className="icon" aria-hidden="true" />
+              商品（{items.length}件）
+            </h2>
             <p className="sub" style={{ marginTop: -6 }}>
               税率と単位は取り込み直しても上書きしません。「店舗に表示」を外すと店舗のカタログに出なくなります。
             </p>

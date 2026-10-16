@@ -1,6 +1,16 @@
 'use client';
 import { useState } from 'react';
 import {
+  Ban,
+  CircleCheck,
+  LoaderCircle,
+  PackageCheck,
+  PenLine,
+  Send,
+  TriangleAlert,
+  Undo2,
+} from 'lucide-react';
+import {
   quoteTotals,
   parseYen,
   yen,
@@ -18,6 +28,23 @@ async function post(url: string, body: unknown) {
   if (!r.ok) throw new Error(json.error ?? '保存できませんでした。');
   return json;
 }
+
+function ErrorLine({ message }: { message: string }) {
+  if (!message) return null;
+  return (
+    <div className="alert" role="alert">
+      <TriangleAlert className="icon" aria-hidden="true" />
+      {message}
+    </div>
+  );
+}
+
+const Busy = ({ on, Icon }: { on: boolean; Icon: typeof Send }) =>
+  on ? (
+    <LoaderCircle className="icon spin" aria-hidden="true" />
+  ) : (
+    <Icon className="icon" aria-hidden="true" />
+  );
 
 type EditorLine = {
   id: string;
@@ -102,16 +129,12 @@ export function QuoteEditor({
                 <td>
                   <input
                     type="checkbox"
+                    className="check"
                     checked={l.included}
                     aria-label={`${l.name}を見積に含める`}
                     onChange={(e) =>
                       update(l.id, { included: e.target.checked })
                     }
-                    style={{
-                      width: 18,
-                      height: 18,
-                      accentColor: 'var(--accent)',
-                    }}
                   />
                 </td>
                 <td className="name">
@@ -134,6 +157,14 @@ export function QuoteEditor({
                       update(l.id, { priceText: e.target.value })
                     }
                   />
+                  {l.included &&
+                    l.price !== null &&
+                    l.price !== l.referencePrice && (
+                      <span className="changed-from">
+                        参考から {l.price > l.referencePrice ? '+' : '−'}
+                        {yen(Math.abs(l.price - l.referencePrice))}
+                      </span>
+                    )}
                 </td>
                 <td className="num">
                   <input
@@ -148,9 +179,11 @@ export function QuoteEditor({
                   />
                 </td>
                 <td className="num">
-                  {l.included && l.price !== null && l.n
-                    ? yen(l.price * l.n)
-                    : '—'}
+                  <b>
+                    {l.included && l.price !== null && l.n
+                      ? yen(l.price * l.n)
+                      : '—'}
+                  </b>
                 </td>
               </tr>
             ))}
@@ -203,14 +236,12 @@ export function QuoteEditor({
           単価・数量・送料は整数の円で入力してください。
         </p>
       )}
-      {error && (
-        <div className="alert" role="alert" style={{ marginTop: 12 }}>
-          {error}
-        </div>
-      )}
+      <div style={{ marginTop: 12 }}>
+        <ErrorLine message={error} />
+      </div>
       <div className="actions section">
         <button
-          className="btn primary"
+          className="btn primary big"
           type="button"
           disabled={busy || invalid || !included.length || !validUntil}
           onClick={async () => {
@@ -235,6 +266,7 @@ export function QuoteEditor({
             }
           }}
         >
+          <Busy on={busy} Icon={Send} />
           {basedOn ? '再見積を送る' : '承認して見積を送る'}（{yen(totals.total)}
           ）
         </button>
@@ -255,10 +287,11 @@ export function RejectForm({ orderId }: { orderId: string }) {
     return (
       <div className="section">
         <button
-          className="btn danger"
+          className="btn danger ghost"
           type="button"
           onClick={() => setOpen(true)}
         >
+          <Ban className="icon" aria-hidden="true" />
           この依頼を却下する
         </button>
       </div>
@@ -273,11 +306,7 @@ export function RejectForm({ orderId }: { orderId: string }) {
         onChange={(e) => setReason(e.target.value)}
         placeholder="例：来週、本社の在庫から配送します。"
       />
-      {error && (
-        <div className="alert" role="alert">
-          {error}
-        </div>
-      )}
+      <ErrorLine message={error} />
       <div className="actions">
         <button
           className="btn danger"
@@ -294,9 +323,14 @@ export function RejectForm({ orderId }: { orderId: string }) {
             }
           }}
         >
+          <Busy on={busy} Icon={Ban} />
           却下する
         </button>
-        <button className="btn" type="button" onClick={() => setOpen(false)}>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={() => setOpen(false)}
+        >
           やめる
         </button>
       </div>
@@ -339,11 +373,12 @@ export function StoreResponse({
       {mode === 'idle' && (
         <div className="actions">
           <button
-            className="btn primary"
+            className="btn primary big"
             type="button"
             disabled={expired}
             onClick={() => setMode('accept')}
           >
+            <CircleCheck className="icon" aria-hidden="true" />
             この見積で発注する
           </button>
           <button
@@ -351,13 +386,15 @@ export function StoreResponse({
             type="button"
             onClick={() => setMode('revise')}
           >
+            <PenLine className="icon" aria-hidden="true" />
             修正を依頼する
           </button>
           <button
-            className="btn danger"
+            className="btn danger ghost"
             type="button"
             onClick={() => setMode('cancel')}
           >
+            <Undo2 className="icon" aria-hidden="true" />
             依頼を取り下げる
           </button>
           {expired && (
@@ -369,21 +406,22 @@ export function StoreResponse({
       )}
       {mode === 'accept' && (
         <div className="confirm-box" role="group" aria-label="発注の確認">
-          <b>合計 {yen(total)}（税込）で発注を確定します。</b>
+          <b className="num">合計 {yen(total)}（税込）で発注を確定します。</b>
           <span className="meta-line">
             確定すると、店舗と本社に発注金額が通知され、仕入先に発注書が送られます。確定後は取り消せません。
           </span>
           <div className="actions">
             <button
-              className="btn primary"
+              className="btn primary big"
               type="button"
               disabled={busy}
               onClick={() => run(`/api/orders/${orderId}/accept`, { quoteId })}
             >
+              <Busy on={busy} Icon={PackageCheck} />
               発注を確定する
             </button>
             <button
-              className="btn"
+              className="btn ghost"
               type="button"
               onClick={() => setMode('idle')}
             >
@@ -422,10 +460,11 @@ export function StoreResponse({
                     })
               }
             >
+              <Busy on={busy} Icon={mode === 'revise' ? PenLine : Undo2} />
               {mode === 'revise' ? '修正を依頼する' : '取り下げる'}
             </button>
             <button
-              className="btn"
+              className="btn ghost"
               type="button"
               onClick={() => setMode('idle')}
             >
@@ -434,11 +473,7 @@ export function StoreResponse({
           </div>
         </div>
       )}
-      {error && (
-        <div className="alert" role="alert">
-          {error}
-        </div>
-      )}
+      <ErrorLine message={error} />
     </div>
   );
 }
@@ -452,10 +487,11 @@ export function CancelRequest({ orderId }: { orderId: string }) {
     return (
       <div className="actions">
         <button
-          className="btn danger"
+          className="btn danger ghost"
           type="button"
           onClick={() => setOpen(true)}
         >
+          <Undo2 className="icon" aria-hidden="true" />
           依頼を取り下げる
         </button>
         <span className="meta-line">本社の見積を待っています。</span>
@@ -470,11 +506,7 @@ export function CancelRequest({ orderId }: { orderId: string }) {
         value={reason}
         onChange={(e) => setReason(e.target.value)}
       />
-      {error && (
-        <div className="alert" role="alert">
-          {error}
-        </div>
-      )}
+      <ErrorLine message={error} />
       <div className="actions">
         <button
           className="btn danger"
@@ -493,9 +525,14 @@ export function CancelRequest({ orderId }: { orderId: string }) {
             }
           }}
         >
+          <Busy on={busy} Icon={Undo2} />
           取り下げる
         </button>
-        <button className="btn" type="button" onClick={() => setOpen(false)}>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={() => setOpen(false)}
+        >
           戻る
         </button>
       </div>

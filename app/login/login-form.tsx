@@ -1,7 +1,20 @@
 'use client';
 import { useState } from 'react';
+import {
+  Building2,
+  ChevronRight,
+  LoaderCircle,
+  Store,
+  TriangleAlert,
+} from 'lucide-react';
 
-type DemoUser = { email: string; name: string; label: string; duty: string };
+type DemoUser = {
+  email: string;
+  name: string;
+  kind: 'store' | 'hq';
+  label: string;
+  duty: string;
+};
 
 export default function LoginForm({
   demo,
@@ -17,10 +30,10 @@ export default function LoginForm({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
 
   async function submit(e: string, p: string) {
-    setBusy(true);
+    setBusy(e);
     setError('');
     try {
       const r = await fetch('/api/auth/login', {
@@ -33,16 +46,16 @@ export default function LoginForm({
       window.location.assign('/');
     } catch (err) {
       setError((err as Error).message);
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
+    <div style={{ display: 'grid', gap: 18 }}>
       {demo && (
         <section
           aria-labelledby="demo-heading"
-          style={{ display: 'grid', gap: 10 }}
+          style={{ display: 'grid', gap: 12 }}
         >
           <h2 id="demo-heading" style={{ margin: 0 }}>
             公開デモ：役割を選んでログイン
@@ -57,16 +70,27 @@ export default function LoginForm({
                 key={u.email}
                 type="button"
                 className="demo-user"
-                disabled={busy}
+                disabled={!!busy}
                 onClick={() => submit(u.email, demoPassword!)}
               >
-                <span>
-                  <b>
-                    {u.name}（{u.label}）
-                  </b>
-                  <small>{u.duty}</small>
+                <span className={`r-icon ${u.kind}`} aria-hidden="true">
+                  {u.kind === 'store' ? (
+                    <Store className="icon" />
+                  ) : (
+                    <Building2 className="icon" />
+                  )}
                 </span>
-                <span aria-hidden="true">→</span>
+                <b>
+                  {u.name}（{u.label}）
+                </b>
+                <small>{u.duty}</small>
+                <span className="go" aria-hidden="true">
+                  {busy === u.email ? (
+                    <LoaderCircle className="icon spin" />
+                  ) : (
+                    <ChevronRight className="icon" />
+                  )}
+                </span>
               </button>
             ))}
           </div>
@@ -77,7 +101,7 @@ export default function LoginForm({
           e.preventDefault();
           submit(email, password);
         }}
-        style={{ display: 'grid', gap: 10 }}
+        style={{ display: 'grid', gap: 12 }}
         aria-label="メールアドレスでログイン"
       >
         {demo && (
@@ -109,10 +133,11 @@ export default function LoginForm({
         </div>
         {error && (
           <div className="alert" role="alert">
+            <TriangleAlert className="icon" aria-hidden="true" />
             {error}
           </div>
         )}
-        <button className="btn primary" disabled={busy} type="submit">
+        <button className="btn primary big" disabled={!!busy} type="submit">
           ログイン
         </button>
       </form>

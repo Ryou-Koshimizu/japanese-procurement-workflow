@@ -4,6 +4,7 @@ import { runtime } from '../../../../src/server/runtime';
 import { listAudit } from '../../../../src/server/service';
 import { auditText } from '../../../../src/ui/audit';
 import { formatDateTime } from '../../../../src/ui/format';
+import { ScrollText } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,10 @@ export default async function AuditPage() {
     <>
       <div className="page-head">
         <div>
+          <span className="eyebrow">
+            <ScrollText className="icon sm" aria-hidden="true" />
+            本社 管理者
+          </span>
           <h1>監査ログ</h1>
           <p className="sub">
             状態の変更・見積・承諾・カタログの変更を、データベースのトリガーが記録します。アプリからは書き換えも削除もできません。

@@ -204,3 +204,21 @@ test('the admin re-imports the catalog from the supplier site', async ({
   expect(site.status()).toBe(200);
   expect(await site.text()).toContain('"@type": "ItemList"');
 });
+
+test('the main screens pass accessibility checks in dark mode too', async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await login(page, '鈴木');
+  await noA11yViolations(page);
+  await page.goto('/catalog');
+  await noA11yViolations(page);
+  await page.getByRole('link', { name: '依頼一覧' }).click();
+  await page.getByRole('link', { name: /R-2026-0003/ }).click();
+  await noA11yViolations(page);
+  // The theme switch overrides the system setting and is remembered.
+  await page.getByRole('button', { name: 'ライト' }).click();
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await noA11yViolations(page);
+});

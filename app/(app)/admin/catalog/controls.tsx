@@ -7,6 +7,15 @@ import type {
   Source,
 } from '../../../../src/server/service';
 import { yen, formatDateTime } from '../../../../src/ui/format';
+import {
+  FileSpreadsheet,
+  Globe,
+  LoaderCircle,
+  PenLine,
+  Plus,
+  RefreshCw,
+  TriangleAlert,
+} from 'lucide-react';
 
 async function send(
   url: string,
@@ -269,6 +278,7 @@ function SourceForm({
       </div>
       {error && (
         <div className="alert field wide" role="alert">
+          <TriangleAlert className="icon" aria-hidden="true" />
           {error}
         </div>
       )}
@@ -399,6 +409,7 @@ export function SourceCard({
       {result && <ImportResult r={result} />}
       {error && (
         <div className="alert" role="alert">
+          <TriangleAlert className="icon" aria-hidden="true" />
           {error}
         </div>
       )}
@@ -411,6 +422,11 @@ export function SourceCard({
               disabled={busy}
               onClick={() => runImport()}
             >
+              {busy ? (
+                <LoaderCircle className="icon spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw className="icon" aria-hidden="true" />
+              )}
               {busy ? '読み込み中…（最大90秒）' : 'サイトから取り込む'}
             </button>
           ) : (
@@ -418,6 +434,11 @@ export function SourceCard({
               className="btn primary"
               style={{ cursor: busy ? 'wait' : 'pointer' }}
             >
+              {busy ? (
+                <LoaderCircle className="icon spin" aria-hidden="true" />
+              ) : (
+                <FileSpreadsheet className="icon" aria-hidden="true" />
+              )}
               {busy ? '取り込み中…' : 'CSVを選んで取り込む'}
               <input
                 type="file"
@@ -437,6 +458,7 @@ export function SourceCard({
             type="button"
             onClick={() => setEditing(true)}
           >
+            <PenLine className="icon" aria-hidden="true" />
             設定を編集
           </button>
         </div>
@@ -458,13 +480,17 @@ export function NewSource({
     return (
       <div>
         <button className="btn" type="button" onClick={() => setOpen(true)}>
-          ＋ 仕入先を追加
+          <Plus className="icon" aria-hidden="true" />
+          仕入先を追加
         </button>
       </div>
     );
   return (
     <section className="card pad" aria-labelledby="new-source">
-      <h2 id="new-source">仕入先を追加</h2>
+      <h2 id="new-source">
+        <Globe className="icon" aria-hidden="true" />
+        仕入先を追加
+      </h2>
       <SourceForm
         initial={{
           name: '',
