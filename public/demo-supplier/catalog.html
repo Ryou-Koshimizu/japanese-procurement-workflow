@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>商品一覧｜さくら備品サプライ（架空）</title>
+<style>
+:root{--ink:#2d2a32;--muted:#6b6470;--line:#ece4e7;--brand:#b4466a;--bg:#fffafb}
+*{box-sizing:border-box}body{margin:0;font-family:"Hiragino Sans","Noto Sans JP",sans-serif;color:var(--ink);background:var(--bg);line-height:1.7}
+a{color:var(--brand)}header{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--line);background:#fff}
+.mark{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#f6c1d1,#b4466a)}
+header b{font-size:17px}header nav{margin-left:auto;display:flex;gap:18px;font-size:14px}
+.fiction{background:#fff3cd;color:#6b4e00;font-size:13px;padding:8px 24px;border-bottom:1px solid #f1df9c}
+main{max-width:1080px;margin:0 auto;padding:28px 24px 64px}h1{font-size:26px;margin:0 0 6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:18px;margin-top:22px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;text-decoration:none;color:inherit;display:flex;flex-direction:column}
+.card img{width:100%;aspect-ratio:1;display:block}.card div{padding:10px 14px 14px}
+.card small{color:var(--muted);display:block}.price{font-weight:700;font-size:17px}.price small{display:inline;font-weight:400;font-size:12px}
+.out{color:#9b1c31;font-size:12px;font-weight:700}
+.item{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}
+.item img{width:100%;border-radius:16px;border:1px solid var(--line)}
+dl{display:grid;grid-template-columns:7em 1fr;gap:6px 12px;font-size:14px}dt{color:var(--muted)}
+.cats{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.cats span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px}
+@media (max-width:640px){.item{grid-template-columns:1fr}header nav{display:none}}
+</style>
+<script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "商品一覧",
+  "numberOfItems": 23,
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "url": "https://sakura-supply.example/items/SK-1001.html",
+      "name": "レシートロール 感熱紙 58mm幅 20巻"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "url": "https://sakura-supply.example/items/SK-1002.html",
+      "name": "紙ナプキン 2枚重ね 1000枚入"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "url": "https://sakura-supply.example/items/SK-1003.html",
+      "name": "テイクアウト用 紙袋 Mサイズ 100枚"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "url": "https://sakura-supply.example/items/SK-1004.html",
+      "name": "ポリ袋 45L 半透明 50枚×10冊"
+    },
+    {
+      "@type": "ListItem",
+      "position": 5,
+      "url": "https://sakura-supply.example/items/SK-1005.html",
+      "name": "業務用ラップ 30cm×100m"
+    },
+    {
+      "@type": "ListItem",
+      "position": 6,
+      "url": "https://sakura-supply.example/items/SK-2001.html",
+      "name": "ハンドソープ 泡タイプ 詰替用 2L"
+    },
+    {
+      "@type": "ListItem",
+      "position": 7,
+      "url": "https://sakura-supply.example/items/SK-2002.html",
+      "name": "手指消毒用アルコール 1L ポンプ付"
+    },
+    {
+      "@type": "ListItem",
+      "position": 8,
+      "url": "https://sakura-supply.example/items/SK-2003.html",
+      "name": "ニトリル手袋 パウダーフリー Mサイズ 100枚"
+    },
+    {
+      "@type": "ListItem",
+      "position": 9,
+      "url": "https://sakura-supply.example/items/SK-2004.html",
+      "name": "ペーパータオル 中判 200枚×30パック"
+    },
+    {
+      "@type": "ListItem",
+      "position": 10,
+      "url": "https://sakura-supply.example/items/SK-2005.html",
+      "name": "除菌ウェットシート 80枚×3個"
+    },
+    {
+      "@type": "ListItem",
+      "position": 11,
+      "url": "https://sakura-supply.example/items/SK-3001.html",
+      "name": "コピー用紙 A4 500枚×5冊"
+    },
+    {
+      "@type": "ListItem",
+      "position": 12,
+      "url": "https://sakura-supply.example/items/SK-3002.html",
+      "name": "油性ボールペン 0.7mm 黒 10本"
+    },
+    {
+      "@type": "ListItem",
+      "position": 13,
+      "url": "https://sakura-supply.example/items/SK-3003.html",
+      "name": "油性マーカー 太字・細字 10本"
+    },
+    {
+      "@type": "ListItem",
+      "position": 14,
+      "url": "https://sakura-supply.example/items/SK-3004.html",
+      "name": "アルカリ乾電池 単3形 20本"
+    },
+    {
+      "@type": "ListItem",
+      "position": 15,
+      "url": "https://sakura-supply.example/items/SK-3005.html",
+      "name": "クリアファイル A4 100枚"
+    },
+    {
+      "@type": "ListItem",
+      "position": 16,
+      "url": "https://sakura-supply.example/items/SK-3006.html",
+      "name": "布粘着テープ 50mm×25m 5巻"
+    },
+    {
+      "@type": "ListItem",
+      "position": 17,
+      "url": "https://sakura-supply.example/items/SK-4001.html",
+      "name": "業務用モップ 替え糸付き"
+    },
+    {
+      "@type": "ListItem",
+      "position": 18,
+      "url": "https://sakura-supply.example/items/SK-4002.html",
+      "name": "ほうき・ちりとりセット"
+    },
+    {
+      "@type": "ListItem",
+      "position": 19,
+      "url": "https://sakura-supply.example/items/SK-4003.html",
+      "name": "食器用洗剤 業務用 4L"
+    },
+    {
+      "@type": "ListItem",
+      "position": 20,
+      "url": "https://sakura-supply.example/items/SK-4004.html",
+      "name": "LED電球 60W形相当 昼白色 4個"
+    },
+    {
+      "@type": "ListItem",
+      "position": 21,
+      "url": "https://sakura-supply.example/items/SK-5001.html",
+      "name": "緑茶 ペットボトル 525ml×24本"
+    },
+    {
+      "@type": "ListItem",
+      "position": 22,
+      "url": "https://sakura-supply.example/items/SK-5002.html",
+      "name": "ミネラルウォーター 500ml×24本"
+    },
+    {
+      "@type": "ListItem",
+      "position": 23,
+      "url": "https://sakura-supply.example/items/SK-5003.html",
+      "name": "ドリップコーヒー 7g×100袋"
+    }
+  ]
+}</script>
+</head>
+<body>
+<header><span class="mark" aria-hidden="true"></span><b>さくら備品サプライ（架空）</b>
+<nav><a href="./index.html">トップ</a><a href="./catalog.html">商品一覧</a></nav></header>
+<p class="fiction">これは「備品発注ワークフロー」の公開デモ用に作った架空の仕入先サイトです。会社・商品・価格はすべて架空で、購入はできません。</p>
+<main><h1>商品一覧</h1><p>価格はすべて税込です。</p>
+<div class="grid"><a class="card" href="./items/SK-1001.html">
+<img src="./images/SK-1001.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>さくらセレクト</small>レシートロール 感熱紙 58mm幅 20巻
+<span class="price">¥2,178<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-1002.html">
+<img src="./images/SK-1002.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>さくらセレクト</small>紙ナプキン 2枚重ね 1000枚入
+<span class="price">¥1,078<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-1003.html">
+<img src="./images/SK-1003.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>こはく包装</small>テイクアウト用 紙袋 Mサイズ 100枚
+<span class="price">¥2,640<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-1004.html">
+<img src="./images/SK-1004.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>こはく包装</small>ポリ袋 45L 半透明 50枚×10冊
+<span class="price">¥3,520<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-1005.html">
+<img src="./images/SK-1005.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>こはく包装</small>業務用ラップ 30cm×100m
+<span class="price">¥1,298<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-2001.html">
+<img src="./images/SK-2001.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>あおば衛材</small>ハンドソープ 泡タイプ 詰替用 2L
+<span class="price">¥1,958<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-2002.html">
+<img src="./images/SK-2002.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>あおば衛材</small>手指消毒用アルコール 1L ポンプ付
+<span class="price">¥1,650<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-2003.html">
+<img src="./images/SK-2003.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>あおば衛材</small>ニトリル手袋 パウダーフリー Mサイズ 100枚
+<span class="price">¥968<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-2004.html">
+<img src="./images/SK-2004.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>あおば衛材</small>ペーパータオル 中判 200枚×30パック
+<span class="price">¥4,290<small>（税込）</small></span><span class="out">在庫切れ</span></div></a>
+<a class="card" href="./items/SK-2005.html">
+<img src="./images/SK-2005.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>あおば衛材</small>除菌ウェットシート 80枚×3個
+<span class="price">¥858<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-3001.html">
+<img src="./images/SK-3001.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>ことり文具</small>コピー用紙 A4 500枚×5冊
+<span class="price">¥2,398<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-3002.html">
+<img src="./images/SK-3002.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>ことり文具</small>油性ボールペン 0.7mm 黒 10本
+<span class="price">¥660<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-3003.html">
+<img src="./images/SK-3003.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>ことり文具</small>油性マーカー 太字・細字 10本
+<span class="price">¥1,320<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-3004.html">
+<img src="./images/SK-3004.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>ことり文具</small>アルカリ乾電池 単3形 20本
+<span class="price">¥1,078<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-3005.html">
+<img src="./images/SK-3005.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>ことり文具</small>クリアファイル A4 100枚
+<span class="price">¥1,100<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-3006.html">
+<img src="./images/SK-3006.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>ことり文具</small>布粘着テープ 50mm×25m 5巻
+<span class="price">¥1,485<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-4001.html">
+<img src="./images/SK-4001.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>みどり清掃</small>業務用モップ 替え糸付き
+<span class="price">¥3,080<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-4002.html">
+<img src="./images/SK-4002.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>みどり清掃</small>ほうき・ちりとりセット
+<span class="price">¥2,178<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-4003.html">
+<img src="./images/SK-4003.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>みどり清掃</small>食器用洗剤 業務用 4L
+<span class="price">¥1,738<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-4004.html">
+<img src="./images/SK-4004.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>みどり清掃</small>LED電球 60W形相当 昼白色 4個
+<span class="price">¥2,970<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-5001.html">
+<img src="./images/SK-5001.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>みなと飲料</small>緑茶 ペットボトル 525ml×24本
+<span class="price">¥2,808<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-5002.html">
+<img src="./images/SK-5002.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>みなと飲料</small>ミネラルウォーター 500ml×24本
+<span class="price">¥1,944<small>（税込）</small></span></div></a>
+<a class="card" href="./items/SK-5003.html">
+<img src="./images/SK-5003.webp" alt="" width="240" height="240" loading="lazy">
+<div><small>みなと飲料</small>ドリップコーヒー 7g×100袋
+<span class="price">¥3,240<small>（税込）</small></span></div></a></div></main>
+</body>
+</html>
