@@ -70,6 +70,9 @@ export function mapDbError(e: unknown): unknown {
       return new AppError(409, '既に登録されています。', 'DUPLICATE');
     case '22P02':
       return new AppError(404, '見つかりません。', 'NOT_FOUND');
+    case '22007':
+    case '22008':
+      return new AppError(400, '日付が正しくありません。', 'BAD_DATE');
     case '40P01':
     case '40001':
       return new AppError(
@@ -86,7 +89,7 @@ export type RequestContext = { userId: string; orgId: string } | null;
 
 async function asRole<T>(
   db: Database,
-  role: 'procurement_user' | 'procurement_mailer',
+  role: 'procurement_user' | 'procurement_mailer' | 'procurement_auth',
   ctx: RequestContext,
   fn: (tx: Sql) => Promise<T>,
 ): Promise<T> {
@@ -121,6 +124,11 @@ export function asUser<T>(
 /** The notification sender: it can read and mark the outbox, nothing else. */
 export function asMailer<T>(db: Database, fn: (tx: Sql) => Promise<T>) {
   return asRole(db, 'procurement_mailer', null, fn);
+}
+
+/** Login and session lookup: the auth_* functions and nothing else. */
+export function asAuth<T>(db: Database, fn: (tx: Sql) => Promise<T>) {
+  return asRole(db, 'procurement_auth', null, fn);
 }
 
 /**

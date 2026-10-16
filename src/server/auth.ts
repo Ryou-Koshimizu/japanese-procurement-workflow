@@ -1,6 +1,6 @@
 import { randomBytes, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
-import { asUser, AppError, type Database } from './db';
+import { asAuth, AppError, type Database } from './db';
 import type { Role } from '../core/workflow';
 
 const scryptAsync = promisify(scrypt) as (
@@ -47,7 +47,7 @@ export const tokenHash = (token: string) =>
 let dummyHash: Promise<string> | undefined;
 
 export async function login(db: Database, email: string, password: string) {
-  const rows = await asUser(db, null, (tx) =>
+  const rows = await asAuth(db, (tx) =>
     tx.query<{ user_id: string; password_hash: string; org_id: string | null }>(
       'SELECT * FROM app.auth_lookup($1)',
       [email.trim().toLowerCase()],
@@ -66,7 +66,7 @@ export async function login(db: Database, email: string, password: string) {
       'LOGIN_FAILED',
     );
   const token = randomBytes(32).toString('base64url');
-  await asUser(db, null, (tx) =>
+  await asAuth(db, (tx) =>
     tx.query(
       `SELECT app.auth_create_session($1, $2, $3, interval '12 hours')`,
       [tokenHash(token), user.user_id, user.org_id],
@@ -92,7 +92,7 @@ export async function sessionFromToken(
   token: string | undefined,
 ) {
   if (!token || token.length > 100) return null;
-  const rows = await asUser(db, null, (tx) =>
+  const rows = await asAuth(db, (tx) =>
     tx.query<{
       user_id: string;
       org_id: string;
@@ -121,7 +121,7 @@ export async function sessionFromToken(
 
 export async function logout(db: Database, token: string | undefined) {
   if (!token) return;
-  await asUser(db, null, (tx) =>
+  await asAuth(db, (tx) =>
     tx.query('SELECT app.auth_delete_session($1)', [tokenHash(token)]),
   );
 }

@@ -54,6 +54,7 @@ export async function openSharedDemo(
     // to switch to the restricted roles for each request.
     await admin.query('GRANT procurement_user TO CURRENT_USER');
     await admin.query('GRANT procurement_mailer TO CURRENT_USER');
+    await admin.query('GRANT procurement_auth TO CURRENT_USER');
   });
 
   const db = await pgDatabase(url);

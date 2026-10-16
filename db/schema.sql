@@ -22,6 +22,11 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'procurement_mailer') THEN
     CREATE ROLE procurement_mailer NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
   END IF;
+  -- Logs people in and looks up sessions. The only role that may call the
+  -- functions handing out password hashes and creating sessions.
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'procurement_auth') THEN
+    CREATE ROLE procurement_auth NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
+  END IF;
 END $$;
 
 CREATE TABLE app.organizations (
@@ -168,9 +173,9 @@ CREATE INDEX orders_store ON app.orders (org_id, store_id, updated_at DESC);
 -- One open draft per person and supplier (the cart).
 CREATE UNIQUE INDEX orders_one_draft ON app.orders (created_by, source_id) WHERE status = 'draft';
 
--- Requested lines. Name, price and tax rate are copied from the catalog when a
--- line is added (order_line_snapshot), so later catalog changes do not alter
--- what was requested.
+-- Requested lines. Name, price and tax rate are copied from the catalog
+-- (order_line_snapshot) while the cart is open, so catalog changes after the
+-- request is sent do not alter what was requested.
 CREATE TABLE app.order_lines (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES app.organizations(id),
@@ -479,14 +484,31 @@ DECLARE
   o app.orders;
   i app.catalog_items;
 BEGIN
-  IF TG_OP = 'UPDATE' THEN
-    IF NEW.order_id <> OLD.order_id OR NEW.item_id <> OLD.item_id THEN
-      RAISE EXCEPTION 'immutable line columns' USING ERRCODE = '42501';
-    END IF;
-    RETURN NEW;
+  IF TG_OP = 'UPDATE' AND (NEW.order_id <> OLD.order_id OR NEW.item_id <> OLD.item_id) THEN
+    RAISE EXCEPTION 'immutable line columns' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO o FROM app.orders WHERE id = NEW.order_id;
   SELECT * INTO i FROM app.catalog_items WHERE id = NEW.item_id;
+  IF TG_OP = 'UPDATE' THEN
+    -- Lines change only in a draft (policy lines_update). Keep the reference
+    -- price current while the cart is open; a delisted item keeps its copy.
+    IF i.id IS NOT NULL THEN
+      NEW.name := i.name;
+      NEW.sku := i.sku;
+      NEW.unit := i.unit;
+      NEW.unit_price := i.unit_price;
+      NEW.tax_rate := i.tax_rate;
+      NEW.product_url := i.product_url;
+    ELSE
+      NEW.name := OLD.name;
+      NEW.sku := OLD.sku;
+      NEW.unit := OLD.unit;
+      NEW.unit_price := OLD.unit_price;
+      NEW.tax_rate := OLD.tax_rate;
+      NEW.product_url := OLD.product_url;
+    END IF;
+    RETURN NEW;
+  END IF;
   IF o.id IS NULL OR i.id IS NULL OR o.status <> 'draft' THEN
     RAISE EXCEPTION 'order or item not available' USING ERRCODE = '42501';
   END IF;
@@ -510,6 +532,22 @@ CREATE TRIGGER order_line_snapshot BEFORE INSERT OR UPDATE ON app.order_lines
   FOR EACH ROW EXECUTE FUNCTION app.order_line_snapshot();
 
 -- Order workflow ------------------------------------------------------------------
+
+-- Whether a draft holds an item that headquarters stopped listing or the
+-- supplier no longer offers. SECURITY DEFINER because store staff cannot see
+-- delisted items at all, so a check under their row-level security would
+-- silently skip them.
+CREATE FUNCTION app.order_has_unorderable_lines(p_order uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = app, pg_temp AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM app.order_lines l
+      JOIN app.orders o ON o.id = l.order_id
+      LEFT JOIN app.catalog_items i ON i.id = l.item_id
+     WHERE l.order_id = p_order AND o.org_id = app.current_org_id()
+       AND NOT coalesce(i.active AND i.available, false))
+$$;
+REVOKE ALL ON FUNCTION app.order_has_unorderable_lines(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION app.order_has_unorderable_lines(uuid) TO procurement_user;
 
 -- Who may move an order from one status to another. Runs as the caller, so the
 -- row-level security above applies to every lookup it makes.
@@ -573,8 +611,7 @@ BEGIN
       IF NOT EXISTS (SELECT 1 FROM app.order_lines WHERE order_id = NEW.id) THEN
         RAISE EXCEPTION 'a request needs at least one line' USING ERRCODE = '23514';
       END IF;
-      IF EXISTS (SELECT 1 FROM app.order_lines l JOIN app.catalog_items i ON i.id = l.item_id
-                  WHERE l.order_id = NEW.id AND NOT (i.active AND i.available)) THEN
+      IF app.order_has_unorderable_lines(NEW.id) THEN
         RAISE EXCEPTION 'a line is no longer in the catalog' USING ERRCODE = '23514';
       END IF;
       IF NEW.needed_by IS NOT NULL AND NEW.needed_by < app.today_jst() THEN
@@ -1010,7 +1047,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = app, pg_temp AS $$
    ORDER BY max(x.created_at), x.audience
 $$;
 
--- Authentication: procurement_user never reads password hashes or sessions directly.
+-- Authentication: only procurement_auth (used by src/server/auth.ts) may call
+-- these; procurement_user, which runs every request, never sees a password
+-- hash or creates a session.
 
 CREATE FUNCTION app.auth_lookup(p_email text)
 RETURNS TABLE (user_id uuid, password_hash text, org_id uuid)
@@ -1058,5 +1097,7 @@ REVOKE ALL ON FUNCTION app.auth_lookup(text), app.auth_create_session(text, uuid
   app.order_events(), app.notify(app.orders, text, text, jsonb), app.order_snapshot(uuid),
   app.quote_snapshot(uuid), app.quote_audit(), app.catalog_audit() FROM PUBLIC;
 REVOKE ALL ON FUNCTION app.order_deliveries(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION app.order_deliveries(uuid) TO procurement_user;
+GRANT USAGE ON SCHEMA app TO procurement_auth;
 GRANT EXECUTE ON FUNCTION app.auth_lookup(text), app.auth_create_session(text, uuid, uuid, interval),
-  app.auth_session(text), app.auth_delete_session(text), app.order_deliveries(uuid) TO procurement_user;
+  app.auth_session(text), app.auth_delete_session(text) TO procurement_auth;

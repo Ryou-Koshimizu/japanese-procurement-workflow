@@ -24,11 +24,13 @@ export async function assertRestrictedRole(db: Database) {
       rolbypassrls: boolean;
       member: boolean;
       mailer: boolean;
+      auth: boolean;
       owner: boolean;
     }>(
       `SELECT rolsuper, rolbypassrls,
               pg_has_role(current_user, 'procurement_user', 'MEMBER') AS member,
               pg_has_role(current_user, 'procurement_mailer', 'MEMBER') AS mailer,
+              pg_has_role(current_user, 'procurement_auth', 'MEMBER') AS auth,
               EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                        WHERE n.nspname = 'app' AND pg_has_role(current_user, c.relowner, 'MEMBER')) AS owner
          FROM pg_roles WHERE rolname = current_user`,
@@ -41,10 +43,11 @@ export async function assertRestrictedRole(db: Database) {
     role.rolbypassrls ||
     !role.member ||
     !role.mailer ||
+    !role.auth ||
     role.owner
   )
     throw new Error(
-      'DATABASE_URL must use a non-superuser role without BYPASSRLS that is a member of procurement_user and procurement_mailer and owns no tables.',
+      'DATABASE_URL must use a non-superuser role without BYPASSRLS that is a member of procurement_user, procurement_mailer and procurement_auth and owns no tables.',
     );
 }
 
