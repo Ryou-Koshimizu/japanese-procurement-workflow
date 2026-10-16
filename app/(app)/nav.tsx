@@ -1,5 +1,6 @@
 'use client';
 import { usePathname } from 'next/navigation';
+import { useRef } from 'react';
 import {
   Bell,
   ListChecks,
@@ -83,6 +84,8 @@ export default function Nav({
             : []),
           { href: '/notifications', label: '通知', Icon: Bell },
         ];
+  // Badges bounce when their number changes, not on every page load.
+  const atLoad = useRef({ cart, todo }).current;
   const active = (href: string) =>
     href === '/'
       ? path === '/' || path.startsWith('/orders')
@@ -96,10 +99,27 @@ export default function Nav({
           aria-current={active(href) ? 'page' : undefined}
           className={wideOnly ? 'wide-only' : undefined}
         >
+          {active(href) && (
+            // The glass lens over the current item. Between pages the view
+            // transition carries it from the old item to the new one.
+            <span
+              className="lg-ind"
+              style={{ viewTransitionName: 'nav-ind' }}
+              aria-hidden="true"
+            />
+          )}
           <Icon className="icon" aria-hidden="true" />
           <span className="label">{label}</span>
           {!!count && (
-            <span className="count" aria-label={`${what} ${count}`}>
+            <span
+              key={count}
+              className={
+                count !== (href === '/cart' ? atLoad.cart : atLoad.todo)
+                  ? 'count bump'
+                  : 'count'
+              }
+              aria-label={`${what} ${count}`}
+            >
               {count}
             </span>
           )}

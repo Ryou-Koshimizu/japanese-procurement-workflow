@@ -2,6 +2,7 @@ import '@fontsource-variable/plus-jakarta-sans';
 import '@fontsource-variable/noto-sans-jp';
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
+import { liquidScript } from '../src/ui/liquid';
 
 export const metadata: Metadata = {
   title: '備品発注ワークフロー',
@@ -12,8 +13,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#e6eff1' },
-    { media: '(prefers-color-scheme: dark)', color: '#051216' },
+    { media: '(prefers-color-scheme: light)', color: '#ecf2f6' },
+    { media: '(prefers-color-scheme: dark)', color: '#050811' },
   ],
 };
 
@@ -31,7 +32,12 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {/* The moving light behind the glass (src/ui/liquid.ts). */}
+        <canvas id="lg-bg" aria-hidden="true" suppressHydrationWarning />
+        <script dangerouslySetInnerHTML={{ __html: liquidScript }} />
+        {children}
+      </body>
     </html>
   );
 }

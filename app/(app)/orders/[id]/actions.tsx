@@ -3,7 +3,6 @@ import { useState } from 'react';
 import {
   Ban,
   CircleCheck,
-  LoaderCircle,
   PackageCheck,
   PenLine,
   Send,
@@ -17,6 +16,7 @@ import {
   type TaxRate,
 } from '../../../../src/core/money';
 import Totals from '../../totals';
+import { MorphButton, settle, type MorphState } from '../../../../src/ui/morph';
 
 async function post(url: string, body: unknown) {
   const r = await fetch(url, {
@@ -29,6 +29,26 @@ async function post(url: string, body: unknown) {
   return json;
 }
 
+/** Posts, lets the button show its check, then reloads to the new state. */
+async function commit(
+  setState: (s: MorphState) => void,
+  setError: (m: string) => void,
+  url: string,
+  body: unknown,
+) {
+  setState('busy');
+  setError('');
+  try {
+    await post(url, body);
+    setState('done');
+    await settle();
+    window.location.reload();
+  } catch (e) {
+    setError((e as Error).message);
+    setState('idle');
+  }
+}
+
 function ErrorLine({ message }: { message: string }) {
   if (!message) return null;
   return (
@@ -38,13 +58,6 @@ function ErrorLine({ message }: { message: string }) {
     </div>
   );
 }
-
-const Busy = ({ on, Icon }: { on: boolean; Icon: typeof Send }) =>
-  on ? (
-    <LoaderCircle className="icon spin" aria-hidden="true" />
-  ) : (
-    <Icon className="icon" aria-hidden="true" />
-  );
 
 type EditorLine = {
   id: string;
@@ -85,7 +98,7 @@ export function QuoteEditor({
   const [validUntil, setValidUntil] = useState(initialValid);
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<MorphState>('idle');
 
   const parsed = lines.map((l) => ({
     ...l,
@@ -240,36 +253,29 @@ export function QuoteEditor({
         <ErrorLine message={error} />
       </div>
       <div className="actions section">
-        <button
+        <MorphButton
           className="btn primary big"
           type="button"
-          disabled={busy || invalid || !included.length || !validUntil}
-          onClick={async () => {
-            setBusy(true);
-            setError('');
-            try {
-              await post(`/api/orders/${orderId}/quote`, {
-                lines: included.map((l) => ({
-                  orderLineId: l.id,
-                  unitPrice: l.price,
-                  qty: l.n,
-                })),
-                shippingFee,
-                validUntil,
-                note: note || null,
-                basedOn,
-              });
-              window.location.reload();
-            } catch (e) {
-              setError((e as Error).message);
-              setBusy(false);
-            }
-          }}
+          state={state}
+          disabled={invalid || !included.length || !validUntil}
+          onClick={() =>
+            commit(setState, setError, `/api/orders/${orderId}/quote`, {
+              lines: included.map((l) => ({
+                orderLineId: l.id,
+                unitPrice: l.price,
+                qty: l.n,
+              })),
+              shippingFee,
+              validUntil,
+              note: note || null,
+              basedOn,
+            })
+          }
         >
-          <Busy on={busy} Icon={Send} />
+          <Send className="icon" aria-hidden="true" />
           {basedOn ? '再見積を送る' : '承認して見積を送る'}（{yen(totals.total)}
           ）
-        </button>
+        </MorphButton>
         {!included.length && (
           <span className="meta-line">商品を1つ以上含めてください。</span>
         )}
@@ -282,7 +288,7 @@ export function RejectForm({ orderId }: { orderId: string }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<MorphState>('idle');
   if (!open)
     return (
       <div className="section">
@@ -308,24 +314,20 @@ export function RejectForm({ orderId }: { orderId: string }) {
       />
       <ErrorLine message={error} />
       <div className="actions">
-        <button
+        <MorphButton
           className="btn danger"
           type="button"
-          disabled={busy || !reason.trim()}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await post(`/api/orders/${orderId}/reject`, { reason });
-              window.location.reload();
-            } catch (e) {
-              setError((e as Error).message);
-              setBusy(false);
-            }
-          }}
+          state={state}
+          disabled={!reason.trim()}
+          onClick={() =>
+            commit(setState, setError, `/api/orders/${orderId}/reject`, {
+              reason,
+            })
+          }
         >
-          <Busy on={busy} Icon={Ban} />
+          <Ban className="icon" aria-hidden="true" />
           却下する
-        </button>
+        </MorphButton>
         <button
           className="btn ghost"
           type="button"
@@ -354,19 +356,10 @@ export function StoreResponse({
   );
   const [text, setText] = useState('');
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<MorphState>('idle');
 
-  async function run(url: string, body: unknown) {
-    setBusy(true);
-    setError('');
-    try {
-      await post(url, body);
-      window.location.reload();
-    } catch (e) {
-      setError((e as Error).message);
-      setBusy(false);
-    }
-  }
+  const run = (url: string, body: unknown) =>
+    commit(setState, setError, url, body);
 
   return (
     <div className="section" style={{ display: 'grid', gap: 12 }}>
@@ -411,15 +404,15 @@ export function StoreResponse({
             確定すると、店舗と本社に発注金額が通知され、仕入先に発注書が送られます。確定後は取り消せません。
           </span>
           <div className="actions">
-            <button
+            <MorphButton
               className="btn primary big"
               type="button"
-              disabled={busy}
+              state={state}
               onClick={() => run(`/api/orders/${orderId}/accept`, { quoteId })}
             >
-              <Busy on={busy} Icon={PackageCheck} />
+              <PackageCheck className="icon" aria-hidden="true" />
               発注を確定する
-            </button>
+            </MorphButton>
             <button
               className="btn ghost"
               type="button"
@@ -445,10 +438,11 @@ export function StoreResponse({
             placeholder={mode === 'revise' ? '例：紙袋は2束で足ります。' : ''}
           />
           <div className="actions">
-            <button
+            <MorphButton
               className={mode === 'revise' ? 'btn primary' : 'btn danger'}
               type="button"
-              disabled={busy || (mode === 'revise' && !text.trim())}
+              state={state}
+              disabled={mode === 'revise' && !text.trim()}
               onClick={() =>
                 mode === 'revise'
                   ? run(`/api/orders/${orderId}/revision`, {
@@ -460,9 +454,13 @@ export function StoreResponse({
                     })
               }
             >
-              <Busy on={busy} Icon={mode === 'revise' ? PenLine : Undo2} />
+              {mode === 'revise' ? (
+                <PenLine className="icon" aria-hidden="true" />
+              ) : (
+                <Undo2 className="icon" aria-hidden="true" />
+              )}
               {mode === 'revise' ? '修正を依頼する' : '取り下げる'}
-            </button>
+            </MorphButton>
             <button
               className="btn ghost"
               type="button"
@@ -482,7 +480,7 @@ export function CancelRequest({ orderId }: { orderId: string }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<MorphState>('idle');
   if (!open)
     return (
       <div className="actions">
@@ -508,26 +506,19 @@ export function CancelRequest({ orderId }: { orderId: string }) {
       />
       <ErrorLine message={error} />
       <div className="actions">
-        <button
+        <MorphButton
           className="btn danger"
           type="button"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await post(`/api/orders/${orderId}/cancel`, {
-                reason: reason || null,
-              });
-              window.location.reload();
-            } catch (e) {
-              setError((e as Error).message);
-              setBusy(false);
-            }
-          }}
+          state={state}
+          onClick={() =>
+            commit(setState, setError, `/api/orders/${orderId}/cancel`, {
+              reason: reason || null,
+            })
+          }
         >
-          <Busy on={busy} Icon={Undo2} />
+          <Undo2 className="icon" aria-hidden="true" />
           取り下げる
-        </button>
+        </MorphButton>
         <button
           className="btn ghost"
           type="button"

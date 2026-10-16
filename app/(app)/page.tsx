@@ -115,8 +115,15 @@ export default async function OrdersPage({
               href={`/?tab=${t.key}`}
               aria-current={t.key === tab ? 'page' : undefined}
             >
+              {t.key === tab && (
+                <span
+                  className="lg-ind"
+                  style={{ viewTransitionName: 'tab-ind' }}
+                  aria-hidden="true"
+                />
+              )}
               {t.label}
-              <span className="num">{t.count}</span>
+              <span className="num tab-count">{t.count}</span>
             </a>
           ))}
         </nav>

@@ -1,11 +1,12 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { LoaderCircle, Send, Store, Trash2, TriangleAlert } from 'lucide-react';
+import { Send, Store, Trash2, TriangleAlert } from 'lucide-react';
 import type { Cart } from '../../../src/server/service';
 import { quoteTotals, yen } from '../../../src/core/money';
 import { Stepper } from '../catalog/add-to-cart';
 import Totals from '../totals';
+import { MorphButton, settle, type MorphState } from '../../../src/ui/morph';
 
 export default function CartEditor({
   cart,
@@ -19,7 +20,7 @@ export default function CartEditor({
   const [neededBy, setNeededBy] = useState(cart.needed_by ?? '');
   const [note, setNote] = useState(cart.note ?? '');
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<MorphState>('idle');
   const totals = quoteTotals(
     lines.map((l) => ({
       unitPrice: l.unit_price,
@@ -183,35 +184,34 @@ export default function CartEditor({
             発注できない商品を外してから依頼してください。
           </div>
         )}
-        <button
+        <MorphButton
           className="btn primary big"
           type="button"
-          disabled={busy || !lines.length || blocked}
+          state={state}
+          disabled={!lines.length || blocked}
           onClick={async () => {
-            setBusy(true);
+            setState('busy');
             try {
               const r = await call(`/api/cart/${id}/submit`, 'POST', {
                 neededBy: neededBy || null,
                 note,
               });
+              setState('done');
+              await settle();
               window.location.assign(`/orders/${r.orderId}`);
             } catch (e) {
               setError((e as Error).message);
-              setBusy(false);
+              setState('idle');
             }
           }}
         >
-          {busy ? (
-            <LoaderCircle className="icon spin" aria-hidden="true" />
-          ) : (
-            <Send className="icon" aria-hidden="true" />
-          )}
+          <Send className="icon" aria-hidden="true" />
           本社に依頼する
-        </button>
+        </MorphButton>
         <button
           className="btn danger ghost"
           type="button"
-          disabled={busy}
+          disabled={state !== 'idle'}
           onClick={async () => {
             try {
               await call(`/api/cart/${id}`, 'DELETE');

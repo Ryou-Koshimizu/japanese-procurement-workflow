@@ -49,7 +49,7 @@ export default async function LoginPage() {
   const demo = config.mode === 'demo';
   return (
     <>
-      <div className="login-theme glass clear">
+      <div className="login-theme glass clear" data-lens>
         <ThemeSwitch />
       </div>
       <main className="login-wrap">
@@ -73,7 +73,7 @@ export default async function LoginPage() {
           </p>
           <ol className="flow">
             {flow.map(({ Icon, title, text }) => (
-              <li key={title} className="glass clear">
+              <li key={title} className="glass clear" data-lens>
                 <Icon className="icon lg" aria-hidden="true" />
                 <b>{title}</b>
                 <small>{text}</small>
@@ -81,7 +81,7 @@ export default async function LoginPage() {
             ))}
           </ol>
         </section>
-        <div className="login glass strong">
+        <div className="login glass strong" data-lens>
           <LoginForm
             demo={demo}
             demoOrg={DEMO_ORG}

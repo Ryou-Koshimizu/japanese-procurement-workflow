@@ -23,7 +23,7 @@ export default async function AppLayout({
       <a className="skip" href="#main">
         本文へ移動
       </a>
-      <aside className="side pane">
+      <aside className="side pane" data-lens>
         <a className="brand" href="/">
           <span className="seal" aria-hidden="true">
             発

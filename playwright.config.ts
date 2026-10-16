@@ -8,6 +8,10 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3013',
     locale: 'ja-JP',
     timezoneId: 'Asia/Tokyo',
+    // Check the settled screens: with motion on, axe would measure text while
+    // it is still fading in. Reduce motion is also a supported mode (the
+    // background draws one still frame, nothing animates).
+    reducedMotion: 'reduce',
     launchOptions: process.env.CHROMIUM_EXECUTABLE_PATH
       ? {
           executablePath: process.env.CHROMIUM_EXECUTABLE_PATH,
