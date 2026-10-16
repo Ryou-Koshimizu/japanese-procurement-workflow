@@ -11,6 +11,7 @@ import {
   importFromSite,
   issueQuote,
   listCatalog,
+  listNotifications,
   listSources,
   orderStats,
   setCartLine,
@@ -135,6 +136,13 @@ describe('workflow', () => {
         ),
       ),
     ).toBe(403);
+  });
+
+  it('lists notifications newest first (by number, not as text)', async () => {
+    const mails = await listNotifications(w.deps, w.as.buyer);
+    const ids = mails.map((m) => Number(m.id));
+    expect(ids).toEqual([...ids].sort((a, b) => b - a));
+    expect(mails[0].subject).toBe('【発注依頼】渋谷店 R-2026-0004');
   });
 
   it('counts every order for the tabs, not a page of them', async () => {

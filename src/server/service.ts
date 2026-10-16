@@ -1196,7 +1196,7 @@ export async function listNotifications(
     tx.query<Omit<Notification, 'subject' | 'body'> & { payload: Payload }>(
       `SELECT id::text, order_id, event, audience, to_email, status, attempts, last_error,
               created_at, sent_at, payload
-         FROM app.outbox ORDER BY id DESC LIMIT $1`,
+         FROM app.outbox ORDER BY app.outbox.id DESC LIMIT $1`,
       [Math.min(Math.max(limit, 1), 300)],
     ),
   );
