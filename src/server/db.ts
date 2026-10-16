@@ -95,12 +95,13 @@ async function asRole<T>(
 ): Promise<T> {
   try {
     return await db.transaction(async (tx) => {
-      await tx.query(`SET LOCAL ROLE ${role}`);
+      // One round trip: set_config('role', ..., true) is SET LOCAL ROLE,
+      // checked against the login role's memberships the same way.
       await tx.query(
-        `SELECT set_config('app.user_id', $1, true), set_config('app.org_id', $2, true)`,
-        [ctx?.userId ?? '', ctx?.orgId ?? ''],
+        `SELECT set_config('role', $1, true), set_config('app.user_id', $2, true),
+                set_config('app.org_id', $3, true), set_config('statement_timeout', '15s', true)`,
+        [role, ctx?.userId ?? '', ctx?.orgId ?? ''],
       );
-      await tx.query(`SET LOCAL statement_timeout = '15s'`);
       return fn(tx);
     });
   } catch (e) {
