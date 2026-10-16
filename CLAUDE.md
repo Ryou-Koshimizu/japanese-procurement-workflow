@@ -1,0 +1,1 @@
+Read AGENTS.md and docs/requirements.md before changing this project. Run npm run typecheck, npm test, npm run build and npm run test:e2e (and the real PostgreSQL tests when the schema changes). Never present unmeasured goals as achieved, and never import or commit data from a real supplier site.
