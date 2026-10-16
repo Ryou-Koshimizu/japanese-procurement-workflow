@@ -12,7 +12,7 @@ import { AppError } from '../../../../src/server/db';
 // headers, which a client can forge when the app is not behind a proxy that
 // overwrites them, so it is only a second layer. The public demo publishes its
 // passwords, so there only the address limit applies (otherwise anyone could
-// lock the shared demo accounts).
+// lock the shared demo accounts) — unless no address is known at all.
 const attempts = new Map<string, { n: number; until: number }>();
 const WINDOW_MS = 5 * 60_000;
 const ACCOUNT_LIMIT = 5;
@@ -63,10 +63,14 @@ export const POST = route(
     const { config, deps, refreshDemo } = await runtime();
     // Shared public demo: start each day's visitors from the original data.
     await refreshDemo?.();
-    const keys: [string, number][] = [
-      [`address:${clientAddress(request)}`, ADDRESS_LIMIT],
-    ];
-    if (config.mode === 'live') keys.push([`account:${email}`, ACCOUNT_LIMIT]);
+    // Without a proxy header every client would share one address bucket, so
+    // twenty failures anywhere would lock everyone out; count accounts only.
+    const address = clientAddress(request);
+    const keys: [string, number][] = address
+      ? [[`address:${address}`, ADDRESS_LIMIT]]
+      : [];
+    if (config.mode === 'live' || !address)
+      keys.push([`account:${email}`, ACCOUNT_LIMIT]);
     if (!take(keys, Date.now()))
       throw new AppError(
         429,
@@ -82,7 +86,7 @@ export const POST = route(
       throw e;
     }
     attempts.delete(`account:${email}`);
-    giveBack(keys[0][0]);
+    if (address) giveBack(`address:${address}`);
     const origin = publicOrigin();
     (await cookies()).set(SESSION_COOKIE, token, {
       httpOnly: true,

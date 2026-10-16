@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 // Application operations. Every query runs through asUser(), so row-level
 // security and the workflow triggers in db/schema.sql decide what each person
 // may see and do; the checks here only turn input into clear messages.
@@ -61,6 +62,13 @@ function requireRole(s: Session, roles: Role[], message: string) {
 }
 
 const escapeLike = (q: string) => q.replace(/[\\%_]/g, (c) => `\\${c}`);
+
+/** A real calendar date in YYYY-MM-DD (2026-02-30 is not). */
+export function isDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
 
 // Catalog ---------------------------------------------------------------------
 
@@ -291,11 +299,19 @@ export type ImportSummary = {
   updated: number;
   unchanged: number;
   missing: number;
+  /** False when part of the site was not read, so nothing was marked missing. */
+  complete: boolean;
   images: number;
   skipped: Skipped[];
   errors: { url: string; message: string }[];
   stoppedEarly?: string;
 };
+
+/** Keys longer than the column hold are hashed instead of cut short. */
+export const storageKey = (key: string) =>
+  key.length <= 500
+    ? key
+    : `${key.slice(0, 400)}#${createHash('sha256').update(key).digest('hex')}`;
 
 async function loadSource(tx: Sql, sourceId: string) {
   const r = await tx.query<Source>(
@@ -372,7 +388,7 @@ async function saveImport(
         [
           s.orgId,
           sourceId,
-          p.key.slice(0, 500),
+          storageKey(p.key),
           p.sku ?? null,
           p.name,
           p.brand ?? null,
@@ -397,9 +413,12 @@ async function saveImport(
         updated++;
       else unchanged++;
     }
-    // Items the supplier no longer lists stay for past orders but cannot be ordered.
-    // Only after a read that found something, so a failed read never empties the catalog.
-    const missing = products.length
+    // Items the supplier no longer lists stay for past orders but cannot be
+    // ordered. Only after a complete read: a page that failed or a limit that
+    // stopped the crawl would otherwise take unread items off the catalog.
+    const complete =
+      products.length > 0 && !extra.errors.length && !extra.stoppedEarly;
+    const missing = complete
       ? (
           await tx.query(
             `UPDATE app.catalog_items SET available = false
@@ -416,6 +435,7 @@ async function saveImport(
       updated,
       unchanged,
       missing,
+      complete,
       images: imageIds.size,
       skipped: extra.skipped.slice(0, 50),
       errors: extra.errors.slice(0, 50),
@@ -548,7 +568,13 @@ export async function getCarts(deps: Deps, s: Session): Promise<Cart[]> {
 }
 
 function qty(value: unknown): number {
-  const n = Number(value);
+  // Number(null), Number('') and Number(false) are 0, which deletes a line.
+  const n =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && /^\d{1,4}$/.test(value)
+        ? Number(value)
+        : NaN;
   if (!Number.isInteger(n) || n < 0 || n > 9999)
     throw new AppError(400, '数量は0〜9999の整数で入力してください。');
   return n;
@@ -643,10 +669,15 @@ export async function submitCart(
   requireRole(s, ['store'], '発注依頼は店舗スタッフの操作です。');
   const oid = id(orderId, 'カート');
   const neededBy = text(body.neededBy, 10, '希望納期');
-  if (neededBy && !/^\d{4}-\d{2}-\d{2}$/.test(neededBy))
-    throw new AppError(400, '希望納期の形式が正しくありません。');
+  if (neededBy && !isDate(neededBy))
+    throw new AppError(400, '希望納期の日付が正しくありません。');
   const note = text(body.note, 1000, 'メモ');
   await asUser(deps.db, ctx(s), async (tx) => {
+    // Touching the lines re-copies the current catalog price and name
+    // (app.order_line_snapshot), so the request shows today's reference.
+    await tx.query('UPDATE app.order_lines SET qty = qty WHERE order_id = $1', [
+      oid,
+    ]);
     const r = await tx.query(
       `UPDATE app.orders SET needed_by = $2::date, note = $3, status = 'requested'
         WHERE id = $1 AND status = 'draft' RETURNING id`,
@@ -715,11 +746,42 @@ export async function listOrders(
          LEFT JOIN app.quotes q ON q.id = o.current_quote_id
          ${ESTIMATE}
         WHERE ${conditions[filter]}
-        ORDER BY o.updated_at DESC LIMIT 300`,
+        ORDER BY o.updated_at DESC LIMIT ${LIST_LIMIT}`,
     );
     return r.rows.map((row) => ({ ...row, amount: Number(row.amount) }));
   });
 }
+
+export type OrderStats = {
+  todo: number;
+  waiting: number;
+  open: number;
+  ordered: number;
+  all: number;
+  orderedThisMonth: number;
+  orderedThisMonthTotal: number;
+};
+
+/** Counts for the list's tabs and tiles, over every order (not a page of them). */
+export async function orderStats(deps: Deps, s: Session): Promise<OrderStats> {
+  return asUser(deps.db, ctx(s), async (tx) => {
+    const r = await tx.query<OrderStats>(
+      `SELECT count(*) FILTER (WHERE status = CASE WHEN app.is_hq() THEN 'requested' ELSE 'quoted' END)::int AS todo,
+              count(*) FILTER (WHERE status = CASE WHEN app.is_hq() THEN 'quoted' ELSE 'requested' END)::int AS waiting,
+              count(*) FILTER (WHERE status IN ('requested', 'quoted'))::int AS open,
+              count(*) FILTER (WHERE status = 'ordered')::int AS ordered,
+              count(*) FILTER (WHERE status <> 'draft')::int AS "all",
+              count(*) FILTER (WHERE status = 'ordered' AND date_trunc('month', ordered_at AT TIME ZONE 'Asia/Tokyo')
+                                 = date_trunc('month', now() AT TIME ZONE 'Asia/Tokyo'))::int AS "orderedThisMonth",
+              coalesce(sum(ordered_total) FILTER (WHERE status = 'ordered' AND date_trunc('month', ordered_at AT TIME ZONE 'Asia/Tokyo')
+                                 = date_trunc('month', now() AT TIME ZONE 'Asia/Tokyo')), 0)::bigint AS "orderedThisMonthTotal"
+         FROM app.orders`,
+    );
+    return r.rows[0];
+  });
+}
+
+export const LIST_LIMIT = 300;
 
 export type QuoteLine = {
   line_no: number;
@@ -932,6 +994,8 @@ export async function issueQuote(
     );
   const input = parsed.data;
   const today = todayInJapan();
+  if (!isDate(input.validUntil))
+    throw new AppError(400, '見積の有効期限の日付が正しくありません。');
   if (
     input.validUntil < today ||
     input.validUntil > addDays(today, MAX_QUOTE_DAYS)
