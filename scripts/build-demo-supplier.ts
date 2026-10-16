@@ -1,13 +1,11 @@
 // Build the fictional supplier's shop site into public/demo-supplier/:
 // a top page, a catalog page with a schema.org ItemList, one page per product
-// with schema.org Product data, robots.txt and the product images (drawn in
-// scripts/demo-supplier/art.ts, rendered with Chromium, encoded with cwebp).
+// with schema.org Product data and robots.txt. The product photos in
+// public/demo-supplier/images/ are committed files (generated with ChatGPT
+// from scripts/demo-supplier/photo-prompts/) and are not touched here.
 //
-//   npm run supplier:build            pages and images
-//   npm run supplier:build -- --pages pages only
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+//   npm run supplier:build
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CATEGORIES,
@@ -15,15 +13,12 @@ import {
   PRODUCTS,
   type DemoProduct,
 } from '../src/demo/supplier-data';
-import { artSvg } from './demo-supplier/art';
 
 const OUT = 'public/demo-supplier';
 const origin = DEMO_SUPPLIER.origin;
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
-const tint = (p: DemoProduct) =>
-  CATEGORIES.find((c) => c.name === p.category)!.tint;
 // JSON inside <script>: keep "</script>" and "<!--" from closing or opening anything.
 const jsonLd = (data: unknown) =>
   `<script type="application/ld+json">${JSON.stringify(data, null, 2).replace(/</g, '\\u003c')}</script>`;
@@ -166,38 +161,12 @@ ${p.inStock ? '<p>在庫あり</p>' : '<p class="out">在庫切れ（入荷待�
   );
 }
 
-async function buildImages() {
-  const { chromium } = await import('@playwright/test');
-  mkdirSync(join(OUT, 'images'), { recursive: true });
-  const tmp = mkdtempSync(join(tmpdir(), 'supplier-art-'));
-  const browser = await chromium.launch();
-  try {
-    const pageHandle = await browser.newPage({
-      viewport: { width: 480, height: 480 },
-    });
-    for (const p of PRODUCTS) {
-      await pageHandle.setContent(
-        `<html><body style="margin:0">${artSvg(p, tint(p))}</body></html>`,
-      );
-      const png = join(tmp, `${p.sku}.png`);
-      await pageHandle.locator('svg').screenshot({ path: png });
-      execFileSync('cwebp', [
-        '-quiet',
-        '-q',
-        '82',
-        '-metadata',
-        'none',
-        png,
-        '-o',
-        join(OUT, 'images', `${p.sku}.webp`),
-      ]);
-    }
-  } finally {
-    await browser.close();
-    rmSync(tmp, { recursive: true, force: true });
-  }
-}
-
 buildPages();
-if (!process.argv.includes('--pages')) await buildImages();
+const missing = PRODUCTS.filter(
+  (p) => !existsSync(join(OUT, 'images', `${p.sku}.webp`)),
+);
+if (missing.length)
+  throw new Error(
+    `Missing product photos: ${missing.map((p) => p.sku).join(', ')}`,
+  );
 console.log(`Built ${PRODUCTS.length} products into ${OUT}/`);
