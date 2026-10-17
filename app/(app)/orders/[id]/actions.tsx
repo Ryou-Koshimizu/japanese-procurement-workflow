@@ -1,7 +1,7 @@
 'use client';
 // The forms on a request page. Each posts one action and reloads; the
 // database decides whether it is allowed.
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Ban,
   CalendarCheck,
@@ -110,9 +110,8 @@ type Row = {
   item_id: string | null;
 };
 
-let rowSeq = 0;
-const newRow = (r: Partial<Row> = {}): Row => ({
-  key: `r${++rowSeq}`,
+const newRow = (key: string, r: Partial<Row> = {}): Row => ({
+  key,
   name: '',
   spec: '',
   qty: '1',
@@ -140,10 +139,14 @@ export function OutlineEditor({
   catalog: CatalogPick[];
   makers: { name: string; source_id: string }[];
 }) {
+  // Row keys (and the ids built from them) must be the same on the server
+  // and in the browser, so they count from the initial lines.
+  const seq = useRef(Math.max(lines.length, 1));
+  const nextKey = () => `r${seq.current++}`;
   const [rows, setRows] = useState<Row[]>(() =>
     lines.length
-      ? lines.map((l) => newRow({ ...l, qty: String(l.qty) }))
-      : [newRow()],
+      ? lines.map((l, i) => newRow(`r${i}`, { ...l, qty: String(l.qty) }))
+      : [newRow('r0')],
   );
   const [source, setSource] = useState(makers[0]?.source_id ?? '');
   const [q, setQ] = useState('');
@@ -249,7 +252,7 @@ export function OutlineEditor({
         <button
           type="button"
           className="btn"
-          onClick={() => setRows((rs) => [...rs, newRow()])}
+          onClick={() => setRows((rs) => [...rs, newRow(nextKey())])}
         >
           <Plus className="icon" aria-hidden="true" />
           行を追加
@@ -303,7 +306,7 @@ export function OutlineEditor({
                   onClick={() =>
                     setRows((rs) => [
                       ...rs.filter((x) => x.name.trim() || x.spec.trim()),
-                      newRow({
+                      newRow(nextKey(), {
                         name: i.name,
                         unit: i.unit,
                         tax_rate: i.tax_rate,
