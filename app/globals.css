@@ -3357,3 +3357,156 @@ table.list {
     background: var(--g-fill-dense);
   }
 }
+
+/* Agency flow (A社 → B社 → メーカー) -------------------------------------------- */
+.s-hearing {
+  background: var(--info-soft);
+  color: var(--info);
+}
+.s-sourcing {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.s-agreed,
+.s-scheduled {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.progress {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.progress li:nth-child(5) {
+  --i: 4;
+}
+.progress li:nth-child(6) {
+  --i: 5;
+}
+.progress li:nth-child(7) {
+  --i: 6;
+}
+.mini-steps i {
+  width: 13px;
+}
+.thread {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.msg {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--fill);
+}
+.msg p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.msg.answer {
+  background: var(--info-soft);
+}
+.msg.note {
+  background: var(--warn-soft);
+  box-shadow: inset 0 0 0 1.5px var(--warn);
+}
+.agent-only {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--warn);
+}
+.agent-box {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--warn-soft);
+  box-shadow: inset 0 0 0 1.5px var(--warn);
+}
+.mq-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.mq {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--fill);
+}
+.mq h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.cheapest {
+  color: var(--success);
+  font-weight: 800;
+}
+.req-mark {
+  color: var(--error);
+  margin-left: 4px;
+}
+.help {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.field-error {
+  color: var(--error);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.notice-mail pre {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--well);
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.answers dd {
+  white-space: pre-wrap;
+}
+.line-grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 2fr) minmax(
+      120px,
+      2fr
+    ) 84px 84px 96px auto;
+  gap: 8px;
+  align-items: end;
+}
+.todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.todo-list a {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--fill);
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 700;
+}
+@media (max-width: 860px) {
+  .progress {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .line-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

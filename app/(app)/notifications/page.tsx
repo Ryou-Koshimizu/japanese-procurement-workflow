@@ -1,20 +1,25 @@
 import {
   Ban,
   Bell,
+  CalendarCheck,
   ExternalLink,
+  Factory,
   FileCheck2,
+  Handshake,
   Info,
   Mail,
-  PackageCheck,
+  MessageCircleQuestionMark,
+  MessagesSquare,
   PenLine,
   Send,
+  Truck,
   Undo2,
   type LucideIcon,
 } from 'lucide-react';
 import { pageSession } from '../../../src/server/http';
 import { runtime } from '../../../src/server/runtime';
 import { listNotifications } from '../../../src/server/service';
-import { isHq } from '../../../src/core/workflow';
+import { isAgent } from '../../../src/core/workflow';
 import type { NotificationEvent } from '../../../src/core/notification';
 import { shortDate } from '../../../src/ui/format';
 
@@ -27,14 +32,23 @@ const statusText = {
   failed: '送信に失敗（再試行します）',
   demo: 'デモのため送信なし',
 } as const;
-const audienceText = { store: '店舗', hq: '本社', supplier: '仕入先' } as const;
+const audienceText = {
+  client: 'A社',
+  agent: 'B社',
+  maker: 'メーカー',
+} as const;
 const eventIcon: Record<NotificationEvent, LucideIcon> = {
   requested: Send,
+  question: MessageCircleQuestionMark,
+  answered: MessagesSquare,
+  rfq: Factory,
   quoted: FileCheck2,
   revision: PenLine,
+  agreed: Handshake,
+  ordered: Truck,
+  scheduled: CalendarCheck,
   rejected: Ban,
   cancelled: Undo2,
-  ordered: PackageCheck,
 };
 
 export default async function NotificationsPage() {
@@ -53,8 +67,8 @@ export default async function NotificationsPage() {
           <h1>通知</h1>
           <p className="sub">
             あなた宛てに送ったメール
-            {isHq(s.role) ? 'と、仕入先へ送った発注書' : ''}
-            です。依頼・見積・発注確定のたびに、データベースが同じ処理の中で送信予定を記録します。
+            {isAgent(s.role) ? 'と、メーカーへ送った見積依頼・発注書' : ''}
+            です。依頼・質問・見積書・合意・発注・納期確定のたびに、データベースが同じ処理の中で送信予定を記録します。
           </p>
         </div>
       </div>

@@ -21,13 +21,13 @@ export default async function AdminCatalogPage() {
         <div>
           <span className="eyebrow">
             <PackageSearch className="icon sm" aria-hidden="true" />
-            本社 管理者
+            B社 管理者
           </span>
           <h1>カタログ管理</h1>
           <p className="sub">
-            仕入先のサイトに載っている商品データ（schema.org の
+            メーカーのサイトに載っている商品データ（schema.org の
             Product・ItemList、または Open
-            Graph）を読み取ってカタログにします。CSVでも取り込めます。取り込み直すと価格の変更を反映し、載らなくなった商品は発注できなくなります。
+            Graph）を読み取ってカタログにします。CSVでも取り込めます。カタログはB社だけが使い、商品概要を書くときに選べます。取り込んだカタログは「メーカー」でメーカーにひも付けます。
           </p>
         </div>
       </div>
@@ -35,7 +35,7 @@ export default async function AdminCatalogPage() {
         <p className="notice" style={{ marginBottom: 16 }}>
           <Info className="icon" aria-hidden="true" />
           <span>
-            公開デモでは、同梱の架空の仕入先サイト（{DEMO_SUPPLIER.origin}、
+            公開デモでは、同梱の架空のメーカーのサイト（{DEMO_SUPPLIER.origin}、
             <a
               href={`${DEMO_SUPPLIER.localPath}/index.html`}
               target="_blank"
@@ -66,7 +66,7 @@ export default async function AdminCatalogPage() {
               商品（{items.length}件）
             </h2>
             <p className="sub" style={{ marginTop: -6 }}>
-              税率と単位は取り込み直しても上書きしません。「店舗に表示」を外すと店舗のカタログに出なくなります。
+              税率と単位は取り込み直しても上書きしません。「使う」を外すと商品概要で選べなくなります。
             </p>
           </div>
           <div className="scroll-x">
@@ -79,7 +79,7 @@ export default async function AdminCatalogPage() {
                   <th>税率</th>
                   <th>単位</th>
                   <th>状態</th>
-                  <th>店舗に表示</th>
+                  <th>使う</th>
                 </tr>
               </thead>
               <tbody>

@@ -1,7 +1,7 @@
 import { pageSession } from '../../src/server/http';
 import { runtime } from '../../src/server/runtime';
 import { counts } from '../../src/server/service';
-import { isHq, roleLabels } from '../../src/core/workflow';
+import { isAgent, roleLabels } from '../../src/core/workflow';
 import { Building2, Store, TriangleAlert } from 'lucide-react';
 import Nav from './nav';
 import ThemeSwitch from '../theme-switch';
@@ -17,7 +17,7 @@ export default async function AppLayout({
   const s = await pageSession();
   const { config, deps } = await runtime();
   const c = await counts(deps, s);
-  const hq = isHq(s.role);
+  const hq = isAgent(s.role);
   return (
     <div className="shell">
       <a className="skip" href="#main">
@@ -33,7 +33,7 @@ export default async function AppLayout({
             <small>{s.orgName}</small>
           </span>
         </a>
-        <Nav role={s.role} todo={c.todo} cart={c.cart} />
+        <Nav role={s.role} todo={c.todo} />
         <div className="side-foot">
           <div className="who">
             <span className="avatar" aria-hidden="true">
@@ -47,7 +47,7 @@ export default async function AppLayout({
               ) : (
                 <Store className="icon sm" aria-hidden="true" />
               )}
-              {s.storeName ? `${s.storeName}・` : ''}
+              {s.storeName ? `A社 ${s.storeName}・` : ''}
               {roleLabels[s.role]}
             </span>
           </div>
@@ -63,7 +63,7 @@ export default async function AppLayout({
               公開デモ
             </b>
             <span>
-              架空の会社・仕入先で動いています。メールは送らず「通知」に記録します。
+              架空の会社・メーカーで動いています。メールは送らず「通知」に記録します。
               {config.sharedDatabase
                 ? 'データは1日ごと、または「デモを初期化」で元に戻ります。'
                 : 'データはサーバー再起動で初期化されます。'}

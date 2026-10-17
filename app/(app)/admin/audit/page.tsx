@@ -21,11 +21,11 @@ export default async function AuditPage() {
         <div>
           <span className="eyebrow">
             <ScrollText className="icon sm" aria-hidden="true" />
-            本社 管理者
+            B社 管理者
           </span>
           <h1>監査ログ</h1>
           <p className="sub">
-            状態の変更・見積・承諾・カタログの変更を、データベースのトリガーが記録します。アプリからは書き換えも削除もできません。
+            依頼の状態・質問と回答・メーカーへの見積依頼・見積書・合意・発注・依頼フォームやメーカーの変更を、データベースのトリガーが記録します。原価や利益の金額は記録に書きません。アプリからは書き換えも削除もできません。
           </p>
         </div>
       </div>

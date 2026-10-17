@@ -1,22 +1,11 @@
-import {
-  ArrowRight,
-  ExternalLink,
-  PackageSearch,
-  Search,
-  ShoppingCart,
-  Store,
-} from 'lucide-react';
+import { redirect } from 'next/navigation';
+import { ExternalLink, PackageSearch, Search, Store } from 'lucide-react';
 import { pageSession } from '../../../src/server/http';
 import { runtime } from '../../../src/server/runtime';
-import {
-  getCarts,
-  listCatalog,
-  listSources,
-} from '../../../src/server/service';
+import { listCatalog, listSources } from '../../../src/server/service';
+import { isAgent } from '../../../src/core/workflow';
 import { localDemoSupplierUrl } from '../../../src/server/demo-supplier';
-import { quoteTotals } from '../../../src/core/money';
 import { imageUrl, yen } from '../../../src/ui/format';
-import AddToCart from './add-to-cart';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +15,7 @@ export default async function CatalogPage({
   searchParams: Promise<{ q?: string; category?: string; source?: string }>;
 }) {
   const s = await pageSession();
+  if (!isAgent(s.role)) redirect('/');
   const { deps } = await runtime();
   const params = await searchParams;
   const q = String(params.q ?? '').slice(0, 100);
@@ -40,18 +30,6 @@ export default async function CatalogPage({
     ? await listCatalog(deps, s, { sourceId, q, category })
     : { items: [], categories: [] };
   const source = sources.find((x) => x.id === sourceId);
-  const carts = await getCarts(deps, s);
-  const cart = carts.find((c) => c.source_id === sourceId);
-  const estimate = cart
-    ? quoteTotals(
-        cart.lines.map((l) => ({
-          unitPrice: l.unit_price,
-          qty: l.qty,
-          taxRate: l.tax_rate,
-        })),
-      )
-    : null;
-  const store = s.role === 'store';
   const link = (extra: Record<string, string | undefined>) => {
     const u = new URLSearchParams();
     const merged = { source: sourceId, q: q || undefined, category, ...extra };
@@ -65,13 +43,13 @@ export default async function CatalogPage({
         <div>
           <span className="eyebrow">
             <Store className="icon sm" aria-hidden="true" />
-            {source?.name ?? '仕入先'}
+            {source?.name ?? 'メーカー'}
           </span>
           <h1>カタログ</h1>
           <p className="sub">
             {source
-              ? `${source.name}のサイトから取り込んだ商品です。価格は取り込み時点の参考価格（税抜換算）で、発注額は本社の見積で確定します。`
-              : '仕入先が登録されていません。'}
+              ? `${source.name}のサイトから取り込んだ商品です。商品概要を書くときに「カタログから選ぶ」で使えます。価格は取り込み時点の参考価格（税抜換算）で、原価はメーカーの見積で決まります。`
+              : 'カタログが登録されていません。'}
           </p>
         </div>
         {source?.urls[0] && (
@@ -82,14 +60,14 @@ export default async function CatalogPage({
             rel="noreferrer noopener"
           >
             <ExternalLink className="icon" aria-hidden="true" />
-            仕入先のサイトを開く
+            メーカーのサイトを開く
           </a>
         )}
       </div>
 
       <div className="toolbar glass clear">
         {sources.length > 1 && (
-          <div className="chips" aria-label="仕入先">
+          <div className="chips" aria-label="メーカー">
             {sources.map((x) => (
               <a
                 key={x.id}
@@ -177,9 +155,7 @@ export default async function CatalogPage({
                       {!i.available && (
                         <span className="tag off">取り扱いなし・在庫切れ</span>
                       )}
-                      {!i.active && (
-                        <span className="tag off">店舗に非表示</span>
-                      )}
+                      {!i.active && <span className="tag off">使わない</span>}
                     </span>
                   )}
                 </div>
@@ -195,39 +171,11 @@ export default async function CatalogPage({
                     {i.price_includes_tax ? '（税込）' : '（税抜）'}
                     {i.sku ? `・${i.sku}` : ''}
                   </span>
-                  {store && (
-                    <AddToCart
-                      itemId={i.id}
-                      name={i.name}
-                      disabled={!orderable}
-                    />
-                  )}
                 </div>
               </article>
             );
           })}
         </section>
-      )}
-
-      {store && cart && cart.lines.length > 0 && (
-        <aside className="dock glass strong" aria-label="カート">
-          <span className="dock-icon" aria-hidden="true">
-            <ShoppingCart className="icon" />
-          </span>
-          <span className="dock-text">
-            <b className="num">
-              {cart.lines.length}品目・
-              {cart.lines.reduce((n, l) => n + l.qty, 0)}点
-            </b>
-            <small className="num">
-              参考の合計（税込）{yen(estimate!.total)}
-            </small>
-          </span>
-          <a className="btn primary" href="/cart">
-            カートを確認して依頼する
-            <ArrowRight className="icon" aria-hidden="true" />
-          </a>
-        </aside>
       )}
     </>
   );

@@ -5,10 +5,12 @@ import { yen } from '../../src/core/money';
 export default function Totals({
   totals,
   shippingFee,
+  expenses,
   label = '合計（税込）',
 }: {
   totals: T;
   shippingFee?: number;
+  expenses?: number;
   label?: string;
 }) {
   return (
@@ -17,6 +19,12 @@ export default function Totals({
         <div>
           <dt>送料（10%対象に含む）</dt>
           <dd>{yen(shippingFee)}</dd>
+        </div>
+      )}
+      {!!expenses && (
+        <div>
+          <dt>諸経費（10%対象に含む）</dt>
+          <dd>{yen(expenses)}</dd>
         </div>
       )}
       <div>

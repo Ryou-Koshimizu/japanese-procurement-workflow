@@ -111,7 +111,6 @@ type FormState = {
   urls: string;
   pricesIncludeTax: boolean;
   defaultTaxRate: 8 | 10;
-  orderEmail: string;
 };
 
 function SourceForm({
@@ -147,7 +146,7 @@ function SourceForm({
       }}
     >
       <div className="field">
-        <label htmlFor={`${idp}-name`}>仕入先の名前</label>
+        <label htmlFor={`${idp}-name`}>カタログの名前</label>
         <input
           id={`${idp}-name`}
           type="text"
@@ -262,20 +261,6 @@ function SourceForm({
           「軽減税率」と書かれた商品は8%で取り込みます。
         </span>
       </div>
-      <div className="field wide">
-        <label htmlFor={`${idp}-email`}>発注書の送り先メール（任意）</label>
-        <input
-          id={`${idp}-email`}
-          type="email"
-          maxLength={200}
-          value={f.orderEmail}
-          onChange={(e) => setF({ ...f, orderEmail: e.target.value })}
-          placeholder="orders@example.com"
-        />
-        <span className="meta-line">
-          双方の合意で発注が確定すると、ここに発注書（発注番号・明細・金額）を送ります。空なら本社が手配します。
-        </span>
-      </div>
       {error && (
         <div className="alert field wide" role="alert">
           <TriangleAlert className="icon" aria-hidden="true" />
@@ -302,7 +287,6 @@ const toBody = (f: FormState) => ({
   urls: f.urls.split(/\s+/).filter(Boolean),
   pricesIncludeTax: f.pricesIncludeTax,
   defaultTaxRate: f.defaultTaxRate,
-  orderEmail: f.orderEmail.trim() || null,
 });
 
 export function SourceCard({
@@ -360,7 +344,6 @@ export function SourceCard({
             urls: source.urls.join('\n'),
             pricesIncludeTax: source.prices_include_tax,
             defaultTaxRate: source.default_tax_rate,
-            orderEmail: source.order_email ?? '',
           }}
           submitLabel="保存する"
           onCancel={() => setEditing(false)}
@@ -385,7 +368,7 @@ export function SourceCard({
                 ))}
                 {viewUrl && viewUrl !== source.urls[0] && (
                   <a href={viewUrl} target="_blank" rel="noreferrer noopener">
-                    デモの仕入先サイトを開く
+                    デモのメーカーのサイトを開く
                   </a>
                 )}
               </dd>
@@ -396,8 +379,6 @@ export function SourceCard({
             {source.prices_include_tax ? '税込' : '税抜'}・標準税率{' '}
             {source.default_tax_rate}%
           </dd>
-          <dt>発注書の送り先</dt>
-          <dd>{source.order_email ?? '未設定'}</dd>
           <dt>最後の取り込み</dt>
           <dd>
             {source.imported_at
@@ -481,7 +462,7 @@ export function NewSource({
       <div>
         <button className="btn" type="button" onClick={() => setOpen(true)}>
           <Plus className="icon" aria-hidden="true" />
-          仕入先を追加
+          カタログを追加
         </button>
       </div>
     );
@@ -489,7 +470,7 @@ export function NewSource({
     <section className="card pad" aria-labelledby="new-source">
       <h2 id="new-source">
         <Globe className="icon" aria-hidden="true" />
-        仕入先を追加
+        カタログを追加
       </h2>
       <SourceForm
         initial={{
@@ -498,7 +479,6 @@ export function NewSource({
           urls: demo ? demoUrl : '',
           pricesIncludeTax: true,
           defaultTaxRate: 10,
-          orderEmail: '',
         }}
         submitLabel="登録する"
         onCancel={() => setOpen(false)}
@@ -615,7 +595,7 @@ export function ItemRow({
             type="checkbox"
             checked={item.active}
             onChange={(e) => patch({ active: e.target.checked })}
-            aria-label={`${item.name}を店舗に表示`}
+            aria-label={`${item.name}を使う`}
           />
           {item.active ? '表示' : '非表示'}
         </label>

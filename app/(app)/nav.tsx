@@ -3,11 +3,13 @@ import { usePathname } from 'next/navigation';
 import { useRef } from 'react';
 import {
   Bell,
+  Factory,
+  House,
   ListChecks,
-  PackageSearch,
   ScrollText,
-  ShoppingCart,
+  SquarePen,
   Store,
+  TextCursorInput,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -23,73 +25,60 @@ type Item = {
   wideOnly?: boolean;
 };
 
-export default function Nav({
-  role,
-  todo,
-  cart,
-}: {
-  role: Role;
-  todo: number;
-  cart: number;
-}) {
+export default function Nav({ role, todo }: { role: Role; todo: number }) {
   const path = usePathname();
+  const home: Item = {
+    href: '/',
+    label: 'ホーム',
+    Icon: House,
+    count: todo,
+    what: 'あなたの番の依頼',
+  };
+  const bell: Item = { href: '/notifications', label: '通知', Icon: Bell };
   const items: Item[] =
-    role === 'store'
+    role === 'client'
       ? [
-          { href: '/catalog', label: 'カタログ', Icon: Store },
-          {
-            href: '/cart',
-            label: 'カート',
-            Icon: ShoppingCart,
-            count: cart,
-            what: 'カートの数量',
-          },
-          {
-            href: '/',
-            label: '依頼一覧',
-            Icon: ListChecks,
-            count: todo,
-            what: '承諾待ちの見積',
-          },
-          { href: '/notifications', label: '通知', Icon: Bell },
+          home,
+          { href: '/requests/new', label: '依頼する', Icon: SquarePen },
+          bell,
         ]
       : [
-          {
-            href: '/',
-            label: '依頼一覧',
-            Icon: ListChecks,
-            count: todo,
-            what: '見積待ちの依頼',
-          },
-          {
-            href: '/catalog',
-            label: 'カタログ',
-            Icon: Store,
-            wideOnly: role === 'admin',
-          },
+          home,
+          { href: '/orders', label: '依頼', Icon: ListChecks },
+          { href: '/makers', label: 'メーカー', Icon: Factory },
+          { href: '/catalog', label: 'カタログ', Icon: Store },
+          bell,
           ...(role === 'admin'
             ? [
                 {
-                  href: '/admin/catalog',
-                  label: 'カタログ管理',
-                  Icon: PackageSearch,
+                  href: '/admin/fields',
+                  label: '依頼フォーム',
+                  Icon: TextCursorInput,
+                  wideOnly: true,
                 },
                 {
                   href: '/admin/members',
-                  label: '店舗とメンバー',
+                  label: 'メンバー',
                   Icon: Users,
+                  wideOnly: true,
                 },
-                { href: '/admin/audit', label: '監査ログ', Icon: ScrollText },
+                {
+                  href: '/admin/audit',
+                  label: '監査ログ',
+                  Icon: ScrollText,
+                  wideOnly: true,
+                },
               ]
             : []),
-          { href: '/notifications', label: '通知', Icon: Bell },
         ];
-  // Badges bounce when their number changes, not on every page load.
-  const atLoad = useRef({ cart, todo }).current;
+  // The badge bounces when its number changes, not on every page load.
+  const atLoad = useRef(todo).current;
   const active = (href: string) =>
     href === '/'
-      ? path === '/' || path.startsWith('/orders')
-      : path === href || path.startsWith(`${href}/`);
+      ? path === '/'
+      : href === '/orders'
+        ? path === '/orders' || path.startsWith('/orders/')
+        : path === href || path.startsWith(`${href}/`);
   return (
     <nav className="nav" aria-label="メニュー">
       {items.map(({ href, label, Icon, count, what, wideOnly }) => (
@@ -113,11 +102,7 @@ export default function Nav({
           {!!count && (
             <span
               key={count}
-              className={
-                count !== (href === '/cart' ? atLoad.cart : atLoad.todo)
-                  ? 'count bump'
-                  : 'count'
-              }
+              className={count !== atLoad ? 'count bump' : 'count'}
               aria-label={`${what} ${count}`}
             >
               {count}

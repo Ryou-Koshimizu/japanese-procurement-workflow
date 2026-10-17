@@ -61,8 +61,8 @@ export default function LoginForm({
             公開デモ：役割を選んでログイン
           </h2>
           <p className="sub" style={{ margin: 0 }}>
-            架空の「{demoOrg}
-            」（3店舗と本社）です。カタログは架空の仕入先サイトから取り込んでいます。メールは送らず、画面の「通知」に記録します。
+            架空の{demoOrg}
+            です。メーカーも架空です。メールは送らず、画面の「通知」に記録します。
           </p>
           <div className="demo-users">
             {demoUsers.map((u) => (

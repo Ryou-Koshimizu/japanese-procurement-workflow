@@ -1,14 +1,23 @@
 import {
   Ban,
+  CalendarCheck,
+  Factory,
   FileCheck2,
-  Hourglass,
+  Handshake,
+  Inbox,
+  MessageCircleQuestionMark,
   PackageCheck,
-  ShoppingCart,
+  PenLine,
   Undo2,
   type LucideIcon,
 } from 'lucide-react';
 import { formatDate, formatDateTime } from '../core/notification';
-import { statusLabels, type Status } from '../core/workflow';
+import {
+  PROGRESS_STEPS,
+  progressIndex,
+  statusLabels,
+  type Status,
+} from '../core/workflow';
 export { yen } from '../core/money';
 export { formatDate, formatDateTime };
 
@@ -26,14 +35,14 @@ export function shortDate(iso: string | null | undefined): string {
 }
 
 export const statusIcons: Record<Status, LucideIcon> = {
-  draft: ShoppingCart,
-  requested: Hourglass,
-  hearing: Hourglass,
-  sourcing: Hourglass,
+  draft: PenLine,
+  requested: Inbox,
+  hearing: MessageCircleQuestionMark,
+  sourcing: Factory,
   quoted: FileCheck2,
-  agreed: FileCheck2,
+  agreed: Handshake,
   ordered: PackageCheck,
-  scheduled: PackageCheck,
+  scheduled: CalendarCheck,
   rejected: Ban,
   cancelled: Undo2,
 };
@@ -49,28 +58,18 @@ export function StatusChip({ status }: { status: Status }) {
   );
 }
 
-/** Four segments for request → quote → acceptance → order. */
+/** One segment per step of PROGRESS_STEPS (依頼 → … → 納期確定). */
 export function MiniSteps({ status }: { status: Status }) {
-  const reached: number = {
-    draft: 0,
-    requested: 1,
-    hearing: 1,
-    sourcing: 1,
-    quoted: 2,
-    agreed: 3,
-    ordered: 3,
-    scheduled: 4,
-    rejected: 1,
-    cancelled: 1,
-  }[status];
   const stopped = status === 'rejected' || status === 'cancelled';
+  const reached = stopped ? 1 : progressIndex(status);
+  const done = status === 'scheduled';
   return (
     <span className="mini-steps" aria-hidden="true">
-      {[0, 1, 2, 3].map((i) => (
+      {PROGRESS_STEPS.map((step, i) => (
         <i
-          key={i}
+          key={step}
           className={
-            i < reached
+            i < reached || done
               ? 'done'
               : i === reached
                 ? stopped

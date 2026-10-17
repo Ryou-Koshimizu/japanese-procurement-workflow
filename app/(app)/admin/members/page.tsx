@@ -11,28 +11,31 @@ export default async function MembersPage() {
   const s = await pageSession();
   if (s.role !== 'admin') redirect('/');
   const { deps } = await runtime();
-  const { stores, hq } = await listStores(deps, s);
+  const { org, stores, agents } = await listStores(deps, s);
   return (
     <>
       <div className="page-head">
         <div>
           <span className="eyebrow">
             <Users className="icon sm" aria-hidden="true" />
-            本社 管理者
+            B社 管理者
           </span>
-          <h1>店舗とメンバー</h1>
+          <h1>メンバー</h1>
           <p className="sub">
-            店舗スタッフは自分の店舗の依頼だけを見られ、本社は全店舗の依頼を見られます（データベースの行レベルセキュリティで分けています）。通知は店舗側＝その店舗のスタッフ全員、本社側＝購買担当と管理者に届きます。
+            A社の担当者は自分の拠点の依頼だけを見られ、B社は全拠点の依頼を見られます（データベースの行レベルセキュリティで分けています）。A社にはメーカーの名前・原価・利益・B社メモは見えません。
           </p>
         </div>
       </div>
       <div className="stack">
-        <section className="card" aria-labelledby="hq-heading">
+        <section className="card" aria-labelledby="agents-heading">
           <div className="pad" style={{ paddingBottom: 0 }}>
-            <h2 id="hq-heading">
+            <h2 id="agents-heading">
               <Building2 className="icon" aria-hidden="true" />
-              本社
+              B社：{org?.name}
             </h2>
+            <p className="meta-line">
+              受入先（B社経由で届けるとき）：{org?.address ?? '未登録'}
+            </p>
           </div>
           <table className="list">
             <thead>
@@ -43,7 +46,7 @@ export default async function MembersPage() {
               </tr>
             </thead>
             <tbody>
-              {hq.map((m) => (
+              {agents.map((m) => (
                 <tr key={m.email}>
                   <td>{m.name}</td>
                   <td>{m.email}</td>
@@ -57,36 +60,40 @@ export default async function MembersPage() {
           <div className="pad" style={{ paddingBottom: 0 }}>
             <h2 id="stores-heading">
               <Store className="icon" aria-hidden="true" />
-              店舗（{stores.length}）
+              A社：{org?.client_name}（{stores.length}拠点）
             </h2>
           </div>
-          <table className="list">
-            <thead>
-              <tr>
-                <th>店舗コード</th>
-                <th>店舗名</th>
-                <th>スタッフ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stores.map((st) => (
-                <tr key={st.id}>
-                  <td>{st.code}</td>
-                  <td>{st.name}</td>
-                  <td>
-                    {st.members.length
-                      ? st.members
-                          .map((m) => `${m.name}（${m.email}）`)
-                          .join('、')
-                      : 'なし'}
-                  </td>
+          <div className="scroll-x">
+            <table className="list">
+              <thead>
+                <tr>
+                  <th>コード</th>
+                  <th>拠点</th>
+                  <th>住所</th>
+                  <th>担当者</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {stores.map((st) => (
+                  <tr key={st.id}>
+                    <td>{st.code}</td>
+                    <td>{st.name}</td>
+                    <td>{st.address ?? '—'}</td>
+                    <td>
+                      {st.members.length
+                        ? st.members
+                            .map((m) => `${m.name}（${m.email}）`)
+                            .join('、')
+                        : 'なし'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
         <p className="meta-line">
-          店舗・メンバーの追加は <code>npm run org:create</code>
+          拠点・メンバーの追加は <code>npm run org:create</code>
           （設定ファイルから一括作成）で行います。
         </p>
       </div>

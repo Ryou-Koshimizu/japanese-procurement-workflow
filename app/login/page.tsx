@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation';
-import { FileCheck2, PackageCheck, Send, ShoppingCart } from 'lucide-react';
+import { CalendarCheck, Factory, FileCheck2, SquarePen } from 'lucide-react';
 import { currentSession } from '../../src/server/http';
 import { runtime } from '../../src/server/runtime';
 import {
   demoStores,
   demoUsers,
+  DEMO_CLIENT,
   DEMO_ORG,
   DEMO_PASSWORD,
 } from '../../src/server/demo-seed';
@@ -15,31 +16,31 @@ import LoginForm from './login-form';
 export const dynamic = 'force-dynamic';
 
 const duties = {
-  store: 'カタログから発注を依頼し、届いた見積を承諾する',
-  buyer: '店舗の依頼を承認して見積を送る（または却下）',
-  admin: '仕入先サイトからカタログを取り込む・監査ログ',
+  client: '決まった項目に答えて依頼し、届いた見積書に合意する',
+  agent: '質問・商品概要・メーカーへの相見積・見積書・発注・納期の連絡',
+  admin: '担当者の仕事に加えて、依頼フォーム・カタログ・メンバー・監査ログ',
 } as const;
 
 const flow = [
   {
-    Icon: ShoppingCart,
-    title: '店舗が依頼',
-    text: 'カタログからカートに入れて本社へ',
+    Icon: SquarePen,
+    title: 'A社が依頼',
+    text: 'B社が決めた項目に答えて送る',
   },
   {
-    Icon: Send,
-    title: '本社が承認して見積',
-    text: '単価・数量・送料・有効期限を決める',
+    Icon: Factory,
+    title: 'B社がメーカーに確認',
+    text: '質問・商品概要・相見積',
   },
   {
     Icon: FileCheck2,
-    title: '店舗が承諾',
-    text: '最新で期限内の見積だけ承諾できる',
+    title: '見積書に合意',
+    text: 'A社に見えるのは売値だけ',
   },
   {
-    Icon: PackageCheck,
-    title: '発注確定・金額を通知',
-    text: '店舗・本社・仕入先へ同じ金額',
+    Icon: CalendarCheck,
+    title: '発注・納期のお知らせ',
+    text: '納期が決まるとA社にメール',
   },
 ];
 
@@ -60,16 +61,16 @@ export default async function LoginPage() {
             </span>
             <span>
               <b>備品発注ワークフロー</b>
-              <small>店舗の依頼・本社の見積・双方の合意で発注</small>
+              <small>依頼する会社・発注を代行する会社・メーカー</small>
             </span>
           </div>
           <h1 id="hero-title">
-            店舗の「これ欲しい」を、
+            拠点の「これがほしい」を、
             <br />
-            合意した金額で発注まで。
+            メーカーへの発注と納期の連絡まで。
           </h1>
           <p className="lead">
-            仕入先のサイトから取り込んだカタログで店舗が依頼し、本社が見積を返し、店舗が承諾した時点で発注が確定します。確定した金額は店舗・本社・仕入先に同時に届きます。
+            A社の拠点が決まった項目で依頼し、発注を代行するB社がヒアリングしてメーカーに見積を取り、経費と利益を載せた見積書を出します。A社が合意したらB社がメーカーに発注し、納期が決まるとA社にお知らせが届きます。メーカーの原価と利益は、データベースの権限でA社から見えません。
           </p>
           <ol className="flow">
             {flow.map(({ Icon, title, text }) => (
@@ -84,17 +85,17 @@ export default async function LoginPage() {
         <div className="login glass strong" data-lens>
           <LoginForm
             demo={demo}
-            demoOrg={DEMO_ORG}
+            demoOrg={`${DEMO_CLIENT}（A社・3拠点）と${DEMO_ORG}（B社）`}
             demoPassword={demo ? DEMO_PASSWORD : undefined}
             demoUsers={
               demo
                 ? demoUsers.map((u) => ({
                     email: u.email,
-                    name: u.name,
-                    kind: u.role === 'store' ? 'store' : 'hq',
-                    label: u.store
-                      ? `${demoStores.find((st) => st.code === u.store)!.name}の${roleLabels.store}`
-                      : roleLabels[u.role],
+                    name: u.store
+                      ? `A社 ${demoStores.find((st) => st.code === u.store)!.name} ${u.name}`
+                      : `B社 ${u.name}`,
+                    kind: u.role === 'client' ? 'store' : 'hq',
+                    label: roleLabels[u.role],
                     duty: duties[u.role],
                   }))
                 : []
