@@ -28,8 +28,12 @@ export function shortDate(iso: string | null | undefined): string {
 export const statusIcons: Record<Status, LucideIcon> = {
   draft: ShoppingCart,
   requested: Hourglass,
+  hearing: Hourglass,
+  sourcing: Hourglass,
   quoted: FileCheck2,
+  agreed: FileCheck2,
   ordered: PackageCheck,
+  scheduled: PackageCheck,
   rejected: Ban,
   cancelled: Undo2,
 };
@@ -47,11 +51,15 @@ export function StatusChip({ status }: { status: Status }) {
 
 /** Four segments for request → quote → acceptance → order. */
 export function MiniSteps({ status }: { status: Status }) {
-  const reached = {
+  const reached: number = {
     draft: 0,
     requested: 1,
+    hearing: 1,
+    sourcing: 1,
     quoted: 2,
-    ordered: 4,
+    agreed: 3,
+    ordered: 3,
+    scheduled: 4,
     rejected: 1,
     cancelled: 1,
   }[status];
