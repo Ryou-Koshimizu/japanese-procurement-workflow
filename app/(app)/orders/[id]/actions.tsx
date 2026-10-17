@@ -731,9 +731,9 @@ export function QuoteBuilder({
       Object.entries(initial?.prices ?? {}).map(([k, v]) => [k, String(v)]),
     ),
   );
-  const [shipping, setShipping] = useState(
-    String(initial?.shipping_fee ?? mq?.shipping_cost ?? 0),
-  );
+  // Starts at 0, never at the maker's shipping cost: a figure left as is
+  // would show A社 a cost.
+  const [shipping, setShipping] = useState(String(initial?.shipping_fee ?? 0));
   const [expenses, setExpenses] = useState(String(initial?.expenses ?? 0));
   const [valid, setValid] = useState(defaultValid);
   const [note, setNote] = useState('');
