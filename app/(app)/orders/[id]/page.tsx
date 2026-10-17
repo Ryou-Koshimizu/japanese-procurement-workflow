@@ -92,7 +92,7 @@ function QuoteView({ q }: { q: Quote }) {
   return (
     <>
       <ScrollX label={`見積書 第${q.version}版の明細`}>
-        <table className="list lines">
+        <table className="list lines fit">
           <thead>
             <tr>
               <th>品名</th>

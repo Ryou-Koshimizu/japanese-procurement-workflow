@@ -887,7 +887,7 @@ export function QuoteBuilder({
       </div>
 
       <ScrollX label="見積書のプレビュー">
-        <table className="list lines">
+        <table className="list lines fit">
           <caption className="sr-only">見積書のプレビュー</caption>
           <thead>
             <tr>
@@ -920,7 +920,6 @@ export function QuoteBuilder({
                       onChange={(e) =>
                         setPrices((p) => ({ ...p, [l.id]: e.target.value }))
                       }
-                      style={{ width: 120 }}
                     />
                   ) : (
                     yen(l.price)

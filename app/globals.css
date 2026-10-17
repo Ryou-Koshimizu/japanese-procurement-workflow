@@ -2509,6 +2509,25 @@ table.list {
 .lines .name {
   min-width: 11em;
 }
+/* A table in the request page's main column (about 510px wide at a 1280px
+   window): tighter cells and wrapping headers keep the amounts in view. */
+.list.fit th,
+.list.fit td {
+  padding-inline: 8px;
+}
+.list.fit th {
+  white-space: normal;
+}
+.list.fit .name {
+  min-width: 8em;
+}
+.list.fit input:not([type]) {
+  width: 96px;
+}
+/* Older quotes sit in the narrower side column. */
+.history .list.fit .name {
+  min-width: 6em;
+}
 .item-cell {
   display: flex;
   gap: 12px;
