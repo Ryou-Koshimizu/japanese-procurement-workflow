@@ -85,6 +85,26 @@ describe('tax and price rules', () => {
     });
   });
 
+  it('marks up cost the same way in TypeScript and SQL', async () => {
+    const next = random(11);
+    const cases: [number, number][] = [
+      [1, 1],
+      [1, 30000],
+      [0, 2500],
+      [9999, 1],
+      [100_000_000, 30000],
+    ];
+    for (let i = 0; i < 300; i++)
+      cases.push([Math.floor(next() * 1_000_000), Math.floor(next() * 30001)]);
+    for (const [cost, bp] of cases) {
+      const r = await pg.query<{ p: number }>(
+        'SELECT app.selling_price($1, $2)::int AS p',
+        [cost, bp],
+      );
+      expect(r.rows[0].p).toBe(sellingPrice(cost, bp));
+    }
+  });
+
   it('marks up cost in basis points, rounding up to whole yen', () => {
     expect(sellingPrice(1, 1)).toBe(2);
     expect(sellingPrice(1, 0)).toBe(1);

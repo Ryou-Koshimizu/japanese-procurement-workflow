@@ -1,518 +1,664 @@
-// The database is the authority for who may do what (db/schema.sql). These
-// tests talk to it as each demo person, through the restricted role, and
-// check that the rules hold even when the application code is bypassed.
-import { beforeEach, describe, expect, it } from 'vitest';
-import { demoWorld, itemId, orderBy, type World } from './helpers';
+// The database is the authority for who may do what and who sees which price
+// (db/schema.sql). These tests talk to it as each person, through the
+// restricted role, so the rules hold even when the application is bypassed.
+import { describe, expect, it } from 'vitest';
 import {
-  acceptQuote,
-  addToCart,
-  getOrder,
+  CLIENT,
+  answerQuote,
+  askMaker,
+  day,
+  fixture,
   issueQuote,
-  listOrders,
-  requestRevision,
-  submitCart,
-} from '../src/server/service';
-import { AppError } from '../src/server/db';
-import { addDays, todayInJapan } from '../src/server/config';
+  outline,
+  recordMaker,
+  refused,
+  submit,
+  validAnswers,
+  type Fixture,
+} from './helpers';
+import { costSubtotal, quoteProfit, quoteTotals } from '../src/core/money';
+import { DEFAULT_REQUEST_FIELDS, validateAnswers } from '../src/core/intake';
+import { subjectOf, type Payload } from '../src/core/notification';
 
-let w: World;
-beforeEach(async () => {
-  w = await demoWorld();
-});
+const year = day().slice(0, 4);
 
-const refused = async (p: Promise<unknown>, status?: number) => {
-  const e = await p.then(
-    () => null,
-    (err) => err,
+// Costs chosen so that none of them equals a selling figure.
+const COST = { counter: 123457, tea: 2311, shipping: 1739 };
+const AOBA = { counter: 131313, tea: 2477 };
+const COST_SUBTOTAL = COST.counter + COST.tea * 3 + COST.shipping; // 132129
+const MARKUP_BP = 2500;
+const PRICES = { counter: 160000, tea: 3000 };
+
+const OUTLINE = [
+  {
+    name: '受付カウンター',
+    spec: 'W1800×D600×H1000 白',
+    qty: 1,
+    unit: '台',
+    tax_rate: 10 as const,
+  },
+  {
+    name: 'ペットボトル緑茶 24本',
+    qty: 3,
+    unit: 'ケース',
+    tax_rate: 8 as const,
+  },
+];
+
+/** Every cost-side figure of the flow below. */
+const costValues = () => [
+  COST.counter,
+  COST.tea * 3,
+  COST.shipping,
+  COST_SUBTOTAL,
+  AOBA.counter,
+  AOBA.counter + AOBA.tea * 3,
+  quoteProfit(COST_SUBTOTAL, 169989),
+  quoteProfit(COST_SUBTOTAL, 176000),
+];
+
+/** JSON without ids and timestamps, so only real figures can match. */
+const scrub = (v: unknown) =>
+  JSON.stringify(v)
+    .replace(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
+      'ID',
+    )
+    .replace(/\d{4}-\d{2}-\d{2}[T ][\d:.]+(Z|[+-]\d{2}(:\d{2})?)?/g, 'TS');
+const leaks = (v: unknown) =>
+  costValues().filter((n) => new RegExp(`(?<!\\d)${n}(?!\\d)`).test(scrub(v)));
+
+/** The whole flow up to the delivery notice, without assertions. */
+async function toScheduled(f: Fixture) {
+  const orderId = await submit(f, 'sato', { needed_by: day(30) });
+  const [lineCounter, lineTea] = await outline(f, orderId, OUTLINE);
+  await f.sql(
+    'tanaka',
+    `INSERT INTO app.order_messages (org_id, order_id, kind, body) VALUES ($1, $2, 'note', $3)`,
+    [f.orgId, orderId, `さくらの仕入値は${COST.counter}円`],
   );
-  expect(e, 'expected a refusal').toBeTruthy();
-  if (status !== undefined) {
-    expect(e).toBeInstanceOf(AppError);
-    expect((e as AppError).status).toBe(status);
-  }
-  return e as AppError;
-};
-
-const quoteLines = async (orderId: string) =>
-  (await getOrder(w.deps, w.as.buyer, orderId)).lines.map((l) => ({
-    orderLineId: l.id,
-    unitPrice: l.unit_price,
-    qty: l.qty,
-  }));
-
-describe('who sees what', () => {
-  it('store staff see only their own store', async () => {
-    const shibuya = await listOrders(w.deps, w.as.shibuya, 'all');
-    expect(new Set(shibuya.map((o) => o.store_name))).toEqual(
-      new Set(['渋谷店']),
-    );
-    const yokohama = await w.sql('yokohama', 'SELECT store_id FROM app.orders');
-    expect(yokohama.every((o) => o.store_id === w.as.yokohama.storeId)).toBe(
-      true,
-    );
-    const stores = await w.sql('yokohama', 'SELECT name FROM app.stores');
-    expect(stores.map((s) => s.name)).toEqual(['横浜店']);
+  const mqSakura = await askMaker(f, orderId, f.makers.sakura);
+  const mqAoba = await askMaker(f, orderId, f.makers.aoba);
+  await recordMaker(
+    f,
+    mqSakura,
+    [
+      { order_line_id: lineCounter, unit_cost: COST.counter },
+      { order_line_id: lineTea, unit_cost: COST.tea },
+    ],
+    COST.shipping,
+  );
+  await recordMaker(f, mqAoba, [
+    { order_line_id: lineCounter, unit_cost: AOBA.counter },
+    { order_line_id: lineTea, unit_cost: AOBA.tea },
+  ]);
+  await issueQuote(f, 'yamada', orderId, {
+    makerQuoteId: mqSakura,
+    mode: 'markup',
+    markupBp: MARKUP_BP,
+    shippingFee: 2000,
+    expenses: 5000,
   });
-
-  it('headquarters sees every store but nobody’s cart', async () => {
-    await addToCart(w.deps, w.as.omiya, await itemId(w, 'SK-1002'), 1);
-    const all = await w.sql('buyer', 'SELECT status FROM app.orders');
-    expect(all).toHaveLength(4);
-    expect(all.some((o) => o.status === 'draft')).toBe(false);
-    // Another store's staff cannot see the cart either.
-    expect(
-      await w.sql(
-        'shibuya',
-        `SELECT id FROM app.orders WHERE status = 'draft'`,
-      ),
-    ).toHaveLength(0);
+  const quoteId = await issueQuote(f, 'yamada', orderId, {
+    makerQuoteId: mqSakura,
+    mode: 'price',
+    prices: [
+      { order_line_id: lineCounter, unit_price: PRICES.counter },
+      { order_line_id: lineTea, unit_price: PRICES.tea },
+    ],
+    shippingFee: 2000,
+    expenses: 5000,
   });
+  await answerQuote(f, 'sato', orderId, quoteId, { accept: true });
+  await f.sql(
+    'yamada',
+    `UPDATE app.orders SET status = 'ordered', delivery_mode = 'direct' WHERE id = $1`,
+    [orderId],
+  );
+  await f.sql(
+    'yamada',
+    `UPDATE app.orders SET status = 'scheduled', delivery_date = $2 WHERE id = $1`,
+    [orderId, day(20)],
+  );
+  return { orderId, quoteId, mqSakura, mqAoba };
+}
 
-  it('store staff do not see items headquarters stopped listing', async () => {
-    const hidden = await w.sql(
-      'shibuya',
-      `SELECT id FROM app.catalog_items WHERE sku = 'SK-4004'`,
-    );
-    expect(hidden).toHaveLength(0);
-    expect(
-      await w.sql(
-        'admin',
-        `SELECT id FROM app.catalog_items WHERE sku = 'SK-4004'`,
-      ),
-    ).toHaveLength(1);
-  });
+const outbox = (f: Fixture, orderId: string, event: string) =>
+  f.owner<{ audience: string; to_email: string; payload: Payload }>(
+    `SELECT audience, to_email, payload FROM app.outbox WHERE order_id = $1 AND event = $2 ORDER BY to_email`,
+    [orderId, event],
+  );
 
-  it('people read only their own notifications; supplier mail only at headquarters', async () => {
-    const mine = await w.sql(
-      'shibuya',
-      'SELECT to_user_id, audience FROM app.outbox',
-    );
-    expect(mine.length).toBeGreaterThan(0);
-    expect(mine.every((m) => m.to_user_id === w.as.shibuya.userId)).toBe(true);
-    const hq = await w.sql(
-      'buyer',
-      `SELECT audience FROM app.outbox WHERE audience = 'supplier'`,
-    );
-    expect(hq).toHaveLength(1);
-  });
-
-  it('nobody reads password hashes or sessions', async () => {
-    await refused(w.sql('admin', 'SELECT password_hash FROM app.users'), 403);
-    await refused(w.sql('admin', 'SELECT * FROM app.sessions'), 403);
-    await refused(w.sql('admin', 'SELECT * FROM app.counters'), 403);
-  });
-});
-
-describe('the order workflow', () => {
-  it('copies name and price from the catalog, not from the caller', async () => {
-    const { orderId } = await addToCart(
-      w.deps,
-      w.as.omiya,
-      await itemId(w, 'SK-3001'),
-      1,
-    );
-    await w.sql(
-      'omiya',
-      `INSERT INTO app.order_lines (org_id, order_id, item_id, name, unit, unit_price, tax_rate, qty)
-       VALUES ($1, $2, $3, '偽の名前', '個', 1, 8, 1)`,
-      [w.as.omiya.orgId, orderId, await itemId(w, 'SK-3002')],
-    );
-    const lines = await w.sql<{
-      name: string;
-      unit_price: number;
-      tax_rate: number;
-    }>(
-      'omiya',
-      `SELECT l.name, l.unit_price, l.tax_rate FROM app.order_lines l JOIN app.catalog_items i ON i.id = l.item_id
-        WHERE i.sku = 'SK-3002'`,
-    );
-    expect(lines[0]).toEqual({
-      name: '油性ボールペン 0.7mm 黒 10本',
-      unit_price: 600,
-      tax_rate: 10,
-    });
-  });
-
-  it('refuses out-of-stock and hidden items', async () => {
-    await refused(
-      addToCart(w.deps, w.as.omiya, await itemId(w, 'SK-2004'), 1),
-      409,
-    );
-    await refused(
-      addToCart(w.deps, w.as.omiya, await itemId(w, 'SK-4004'), 1),
-      404,
-    );
-  });
-
-  it('only headquarters quotes, and the database computes every amount', async () => {
-    const o = await orderBy(w, 'R-2026-0004');
-    await refused(
-      issueQuote(w.deps, w.as.shibuya, o.id, {
-        lines: await quoteLines(o.id),
-        shippingFee: 0,
-        validUntil: addDays(todayInJapan(), 7),
-        basedOn: null,
-      }),
-      403,
-    );
-    // A forged insert with its own totals and version: the database replaces them.
-    const lines = await quoteLines(o.id);
-    await w.sql(
-      'buyer',
-      `INSERT INTO app.quotes (org_id, order_id, lines, shipping_fee, valid_until, issued_by,
-                               total, subtotal_10, tax_10, version, status)
-       VALUES ($1, $2, $3, 500, $4, $5, 1, 1, 0, 9, 'accepted')`,
-      [
-        w.as.buyer.orgId,
-        o.id,
-        JSON.stringify(
-          lines.map((l) => ({
-            order_line_id: l.orderLineId,
-            unit_price: l.unitPrice,
-            qty: l.qty,
-          })),
-        ),
-        addDays(todayInJapan(), 7),
-        w.as.shibuya.userId,
-      ],
-    );
-    const [q] = await w.sql<{
-      version: number;
-      status: string;
-      total: number;
-      issued_by: string;
-    }>(
-      'buyer',
-      'SELECT version, status, total, issued_by FROM app.quotes WHERE order_id = $1',
-      [o.id],
-    );
-    // 2 × ¥980 + 2 × ¥1,500 + ¥500 shipping at 10%, 1 × ¥3,000 at 8%.
-    expect(q).toEqual({
-      version: 1,
-      status: 'sent',
-      total: 5460 + 546 + 3000 + 240,
-      issued_by: w.as.buyer.userId,
-    });
-    const [order] = await w.sql(
-      'buyer',
-      'SELECT status FROM app.orders WHERE id = $1',
-      [o.id],
-    );
-    expect(order.status).toBe('quoted');
-  });
-
-  it('refuses quote lines that are not in the request, duplicated or fractional', async () => {
-    const o = await orderBy(w, 'R-2026-0004');
-    const lines = await quoteLines(o.id);
-    const insert = (l: unknown[]) =>
-      w.sql(
-        'buyer',
-        `INSERT INTO app.quotes (org_id, order_id, lines, valid_until, issued_by) VALUES ($1, $2, $3, $4, $5)`,
-        [
-          w.as.buyer.orgId,
-          o.id,
-          JSON.stringify(l),
-          addDays(todayInJapan(), 7),
-          w.as.buyer.userId,
-        ],
-      );
-    const other = await orderBy(w, 'R-2026-0001');
-    const foreign = (await getOrder(w.deps, w.as.buyer, other.id)).lines[0].id;
-    await refused(
-      insert([{ order_line_id: foreign, unit_price: 1, qty: 1 }]),
-      409,
-    );
-    const first = {
-      order_line_id: lines[0].orderLineId,
-      unit_price: 100,
-      qty: 1,
-    };
-    await refused(insert([first, first]), 409);
-    await refused(insert([{ ...first, unit_price: 100.5 }]), 409);
-    await refused(insert([{ ...first, qty: 0 }]), 409);
-    await refused(insert([]), 409);
-  });
-
-  it('only the requesting store accepts, and acceptance places the order', async () => {
-    const o = await orderBy(w, 'R-2026-0003');
-    await refused(
-      acceptQuote(w.deps, w.as.buyer, o.id, o.current_quote_id),
-      403,
-    );
-    // Another store does not even see the order.
-    await refused(
-      acceptQuote(w.deps, w.as.shibuya, o.id, o.current_quote_id),
-      404,
-    );
-    // Even bypassing the service, another store cannot answer: it sees no row.
-    const forged = await w.sql(
-      'shibuya',
-      `UPDATE app.quotes SET status = 'accepted', responded_by = $2 WHERE id = $1 RETURNING id`,
-      [o.current_quote_id, w.as.shibuya.userId],
-    );
-    expect(forged).toEqual([]);
-    const placed = await acceptQuote(
-      w.deps,
-      w.as.yokohama,
-      o.id,
-      o.current_quote_id,
-    );
-    expect(placed.poNumber).toBe('PO-2026-0002');
-    const order = await getOrder(w.deps, w.as.yokohama, o.id);
-    expect(order.status).toBe('ordered');
-    expect(order.ordered_total).toBe(order.quotes[0].total);
-  });
-
-  it('queues the agreed amount to both parties and the supplier in the same transaction', async () => {
-    const o = await orderBy(w, 'R-2026-0003');
-    await acceptQuote(w.deps, w.as.yokohama, o.id, o.current_quote_id);
-    const rows = await w.pg.query<{
-      audience: string;
-      to_email: string;
-      total: number;
-      po: string;
-    }>(
-      `SELECT audience, to_email, (payload->>'total')::int AS total, payload->>'po_number' AS po
-         FROM app.outbox WHERE order_id = $1 AND event = 'ordered' ORDER BY audience, to_email`,
-      [o.id],
-    );
-    const total = (await getOrder(w.deps, w.as.buyer, o.id)).ordered_total;
-    expect(rows.rows.map((r) => [r.audience, r.to_email])).toEqual([
-      ['hq', 'tanaka@sample-cafe.example'],
-      ['hq', 'yamada@sample-cafe.example'],
-      ['store', 'suzuki@sample-cafe.example'],
-      ['supplier', 'orders@sakura-supply.example'],
-    ]);
-    expect(
-      rows.rows.every((r) => r.total === total && r.po === 'PO-2026-0002'),
-    ).toBe(true);
-  });
-
-  it('a revised quote replaces the open one, which can no longer be accepted', async () => {
-    const o = await orderBy(w, 'R-2026-0004');
-    const lines = await quoteLines(o.id);
-    const valid = addDays(todayInJapan(), 7);
-    await issueQuote(w.deps, w.as.buyer, o.id, {
-      lines,
-      shippingFee: 0,
-      validUntil: valid,
-      basedOn: null,
-    });
-    const first = (await orderBy(w, 'R-2026-0004')).current_quote_id;
-    // A colleague working from the old screen is told to reload.
-    await refused(
-      issueQuote(w.deps, w.as.admin, o.id, {
-        lines,
-        shippingFee: 0,
-        validUntil: valid,
-        basedOn: null,
-      }),
-      409,
-    );
-    await issueQuote(w.deps, w.as.buyer, o.id, {
-      lines: lines.slice(0, 1),
-      shippingFee: 0,
-      validUntil: valid,
-      basedOn: 1,
-    });
-    const e = await refused(
-      acceptQuote(w.deps, w.as.shibuya, o.id, first),
-      409,
-    );
-    expect(e.message).toContain('更新');
-    const quotes = await w.sql(
-      'shibuya',
-      'SELECT version, status FROM app.quotes WHERE order_id = $1 ORDER BY version',
-      [o.id],
-    );
-    expect(quotes).toEqual([
-      { version: 1, status: 'superseded' },
-      { version: 2, status: 'sent' },
-    ]);
-  });
-
-  it('refuses an expired quote', async () => {
-    const o = await orderBy(w, 'R-2026-0003');
-    // Age the quote as the owner, bypassing the triggers that forbid it.
-    await w.pg.exec(`SET session_replication_role = replica`);
-    await w.pg.query(
-      `UPDATE app.quotes SET valid_until = current_date - 1 WHERE id = $1`,
-      [o.current_quote_id],
-    );
-    await w.pg.exec(`SET session_replication_role = origin`);
-    const e = await refused(
-      acceptQuote(w.deps, w.as.yokohama, o.id, o.current_quote_id),
-      409,
-    );
-    expect(e.message).toContain('有効期限');
-  });
-
-  it('a revision request needs a note and sends the order back', async () => {
-    const o = await orderBy(w, 'R-2026-0003');
-    await refused(
-      requestRevision(w.deps, w.as.yokohama, o.id, o.current_quote_id, ' '),
-      400,
-    );
-    await refused(
-      w.sql(
-        'yokohama',
-        `UPDATE app.quotes SET status = 'declined', responded_by = $2 WHERE id = $1`,
-        [o.current_quote_id, w.as.yokohama.userId],
-      ),
-      409,
-    );
-    await requestRevision(
-      w.deps,
-      w.as.yokohama,
-      o.id,
-      o.current_quote_id,
-      '数量を減らしてください',
-    );
-    const [order] = await w.sql(
-      'buyer',
-      'SELECT status, revision_note FROM app.orders WHERE id = $1',
-      [o.id],
-    );
-    expect(order).toEqual({
-      status: 'requested',
-      revision_note: '数量を減らしてください',
-    });
-  });
-
-  it('closed orders and answered quotes cannot change', async () => {
-    const done = await orderBy(w, 'R-2026-0001');
-    await refused(
-      w.sql(
-        'shibuya',
-        `UPDATE app.orders SET status = 'cancelled' WHERE id = $1`,
-        [done.id],
-      ),
-      403,
-    );
-    await refused(
-      w.sql('buyer', `UPDATE app.orders SET status = 'quoted' WHERE id = $1`, [
-        done.id,
-      ]),
-      403,
-    );
-    await refused(
-      w.sql(
-        'buyer',
-        `UPDATE app.quotes SET status = 'superseded' WHERE id = $1`,
-        [done.current_quote_id],
-      ),
-      403,
-    );
-    // Amounts, lines and numbers are not even updatable columns.
-    await refused(
-      w.sql('buyer', `UPDATE app.quotes SET total = 1 WHERE id = $1`, [
-        done.current_quote_id,
-      ]),
-      403,
-    );
-    await refused(
-      w.sql('buyer', `UPDATE app.orders SET po_number = 'PO-X' WHERE id = $1`, [
-        done.id,
-      ]),
-      403,
-    );
-    await refused(
-      w
-        .sql(
-          'shibuya',
-          `UPDATE app.order_lines SET qty = 99 WHERE order_id = $1`,
-          [done.id],
+describe('the agency workflow', () => {
+  it('runs from the intake form to the delivery notice', async () => {
+    const f = await fixture();
+    const status = async (id: string) =>
+      (
+        await f.owner<{ status: string }>(
+          'SELECT status FROM app.orders WHERE id = $1',
+          [id],
         )
-        .then((r) => {
-          if (r.length === 0) throw new Error('no rows');
-        }),
-    );
-    const [line] = await w.sql<{ qty: number }>(
-      'shibuya',
-      'SELECT qty FROM app.order_lines WHERE order_id = $1 LIMIT 1',
-      [done.id],
-    );
-    expect(line.qty).toBeLessThan(99);
-  });
+      )[0].status;
 
-  it('numbers requests and purchase orders without gaps', async () => {
-    const before = await w.pg.query<{ kind: string; value: number }>(
-      'SELECT kind, value FROM app.counters ORDER BY kind',
-    );
-    expect(before.rows).toEqual([
-      { kind: 'po', value: 1 },
-      { kind: 'request', value: 4 },
-    ]);
-    // A refused submission does not use a number.
-    const { orderId } = await addToCart(
-      w.deps,
-      w.as.omiya,
-      await itemId(w, 'SK-1002'),
-      1,
-    );
-    await refused(
-      submitCart(w.deps, w.as.omiya, orderId, { neededBy: '2000-01-01' }),
-      409,
-    );
-    await submitCart(w.deps, w.as.omiya, orderId, {});
-    const [o] = await w.sql(
-      'omiya',
-      'SELECT request_number FROM app.orders WHERE id = $1',
+    // A社 sends a request through the intake form.
+    const orderId = await submit(f, 'sato', {
+      answers: [
+        ...validAnswers,
+        { key: 'item', label: '偽', kind: 'number', value: '受付カウンター' },
+      ].slice(1),
+      needed_by: day(30),
+      note: '開店前に入れ替えたい',
+    });
+    const [sent] = await f.sql<{
+      status: string;
+      request_number: string;
+      answers: unknown[];
+    }>(
+      'sato',
+      'SELECT status, request_number, answers FROM app.orders WHERE id = $1',
       [orderId],
     );
-    expect(o.request_number).toBe('R-2026-0005');
-  });
-
-  it('the audit trail is append-only and the outbox is written only by the database', async () => {
-    await refused(w.sql('admin', `UPDATE app.audit_log SET action = 'x'`), 403);
-    await refused(w.sql('admin', `DELETE FROM app.audit_log`), 403);
-    await refused(
-      w.sql(
-        'admin',
-        `INSERT INTO app.audit_log (org_id, action) VALUES ($1, 'x')`,
-        [w.as.admin.orgId],
-      ),
-      403,
-    );
-    const o = await orderBy(w, 'R-2026-0001');
-    await refused(
-      w.sql(
-        'admin',
-        `INSERT INTO app.outbox (org_id, order_id, event, audience, to_email, payload)
-         VALUES ($1, $2, 'ordered', 'supplier', 'attacker@example.com', '{}')`,
-        [w.as.admin.orgId, o.id],
-      ),
-      403,
-    );
-    const entries = await w.sql(
-      'admin',
-      `SELECT action FROM app.audit_log WHERE order_id = $1 ORDER BY id`,
-      [o.id],
-    );
-    expect(entries.map((e) => e.action)).toEqual([
-      'status:requested',
-      'quote:issued',
-      'status:quoted',
-      'quote:accepted',
-      'status:ordered',
+    expect(sent.status).toBe('requested');
+    expect(sent.request_number).toBe(`R-${year}-0001`);
+    expect(sent.answers[0]).toEqual({
+      key: 'item',
+      label: 'ほしい物',
+      kind: 'text',
+      value: '受付カウンター',
+    });
+    expect(
+      (await outbox(f, orderId, 'requested')).map((r) => [
+        r.audience,
+        r.to_email,
+      ]),
+    ).toEqual([
+      ['agent', 'tanaka@midori.example'],
+      ['agent', 'yamada@midori.example'],
     ]);
+
+    // Hearing: B社 asks, another branch cannot answer, the branch answers.
+    await f.sql(
+      'yamada',
+      `INSERT INTO app.order_messages (org_id, order_id, kind, body) VALUES ($1, $2, 'question', '幅は何cmまで置けますか？')`,
+      [f.orgId, orderId],
+    );
+    expect(await status(orderId)).toBe('hearing');
+    const [question] = await outbox(f, orderId, 'question');
+    expect([question.to_email, question.payload.question]).toEqual([
+      'sato@sample-cafe.example',
+      '幅は何cmまで置けますか？',
+    ]);
+    await refused(
+      f.sql(
+        'suzuki',
+        `INSERT INTO app.order_messages (org_id, order_id, kind, body) VALUES ($1, $2, 'answer', '2m')`,
+        [f.orgId, orderId],
+      ),
+      '42501',
+    );
+    await f.sql(
+      'yamada',
+      `INSERT INTO app.order_messages (org_id, order_id, kind, body) VALUES ($1, $2, 'note', '電話で確認済み')`,
+      [f.orgId, orderId],
+    );
+    expect(await status(orderId)).toBe('hearing');
+    await f.sql(
+      'sato',
+      `INSERT INTO app.order_messages (org_id, order_id, kind, body) VALUES ($1, $2, 'answer', '幅180cmまでです')`,
+      [f.orgId, orderId],
+    );
+    expect(await status(orderId)).toBe('requested');
+    expect(
+      (await outbox(f, orderId, 'answered')).map((r) => r.payload.answer),
+    ).toEqual(['幅180cmまでです', '幅180cmまでです']);
+    expect(
+      (
+        await f.sql<{ kind: string }>(
+          'sato',
+          'SELECT kind FROM app.order_messages ORDER BY created_at',
+        )
+      ).map((m) => m.kind),
+    ).toEqual(['question', 'answer']);
+
+    // The outline: B社 only; A社 sees it once fixed.
+    await refused(
+      f.sql(
+        'sato',
+        `INSERT INTO app.order_lines (org_id, order_id, name, qty) VALUES ($1, $2, '棚', 1)`,
+        [f.orgId, orderId],
+      ),
+      '42501',
+    );
+    const [lineCounter, lineTea] = await outline(f, orderId, OUTLINE);
+    expect(await status(orderId)).toBe('sourcing');
+    expect(
+      await f.sql('sato', 'SELECT name FROM app.order_lines'),
+    ).toHaveLength(2);
+
+    // 相見積: two makers are asked; the request for a quote names no A社 details.
+    const mqSakura = await askMaker(f, orderId, f.makers.sakura);
+    const mqAoba = await askMaker(f, orderId, f.makers.aoba);
+    const rfq = await outbox(f, orderId, 'rfq');
+    expect(rfq.map((r) => [r.audience, r.to_email])).toEqual([
+      ['maker', 'orders@sakura-supply.example'],
+      ['maker', 'sales@aoba-juki.example'],
+    ]);
+    for (const r of rfq) {
+      expect(JSON.stringify(r.payload)).not.toMatch(/サンプルカフェ|渋谷|架空/);
+      expect(r.payload.lines).toEqual([
+        {
+          name: '受付カウンター',
+          spec: 'W1800×D600×H1000 白',
+          qty: 1,
+          unit: '台',
+        },
+        { name: 'ペットボトル緑茶 24本', spec: '', qty: 3, unit: 'ケース' },
+      ]);
+    }
+    await refused(askMaker(f, orderId, f.makers.sakura), '23505');
+
+    // The makers reply; the database computes the cost subtotal.
+    await refused(
+      recordMaker(f, mqSakura, [
+        { order_line_id: lineCounter, unit_cost: COST.counter },
+      ]),
+      '23514',
+      /must match the outline/,
+    );
+    await recordMaker(
+      f,
+      mqSakura,
+      [
+        { order_line_id: lineCounter, unit_cost: COST.counter },
+        { order_line_id: lineTea, unit_cost: COST.tea },
+      ],
+      COST.shipping,
+    );
+    await recordMaker(f, mqAoba, [
+      { order_line_id: lineCounter, unit_cost: AOBA.counter },
+      { order_line_id: lineTea, unit_cost: AOBA.tea },
+    ]);
+    const [mq] = await f.sql<{ cost_subtotal: number }>(
+      'yamada',
+      'SELECT cost_subtotal FROM app.maker_quotes WHERE id = $1',
+      [mqSakura],
+    );
+    expect(mq.cost_subtotal).toBe(COST_SUBTOTAL);
+    expect(
+      costSubtotal(
+        [
+          { unitCost: COST.counter, qty: 1 },
+          { unitCost: COST.tea, qty: 3 },
+        ],
+        COST.shipping,
+      ),
+    ).toBe(COST_SUBTOTAL);
+
+    // A quote to A社 with a markup on cost: prices rounded up, shipping and
+    // expenses at 10%, profit kept for B社.
+    const q1 = await issueQuote(f, 'yamada', orderId, {
+      makerQuoteId: mqSakura,
+      mode: 'markup',
+      markupBp: MARKUP_BP,
+      shippingFee: 2000,
+      expenses: 5000,
+    });
+    const quoteRow = async (id: string) =>
+      (
+        await f.sql<
+          Record<string, number> & { lines: { unit_price: number }[] }
+        >(
+          'yamada',
+          `SELECT q.version, q.status, q.lines, q.subtotal_10, q.tax_10, q.subtotal_8, q.tax_8, q.total,
+                  c.cost_subtotal, c.sales_subtotal, c.profit
+             FROM app.quotes q JOIN app.quote_costs c ON c.quote_id = q.id WHERE q.id = $1`,
+          [id],
+        )
+      )[0];
+    const markup = await quoteRow(q1);
+    expect(markup.lines.map((l) => l.unit_price)).toEqual([154322, 2889]);
+    const markupTotals = quoteTotals(
+      [
+        { unitPrice: 154322, qty: 1, taxRate: 10 },
+        { unitPrice: 2889, qty: 3, taxRate: 8 },
+      ],
+      2000,
+      5000,
+    );
+    expect([
+      markup.subtotal_10,
+      markup.tax_10,
+      markup.subtotal_8,
+      markup.tax_8,
+      markup.total,
+    ]).toEqual([
+      markupTotals.subtotal10,
+      markupTotals.tax10,
+      markupTotals.subtotal8,
+      markupTotals.tax8,
+      186814,
+    ]);
+    expect(markupTotals.total).toBe(186814);
+    expect([
+      markup.cost_subtotal,
+      markup.sales_subtotal,
+      markup.profit,
+    ]).toEqual([COST_SUBTOTAL, 169989, quoteProfit(COST_SUBTOTAL, 169989)]);
+
+    // A revised quote with prices set by hand replaces the first one.
+    const q2 = await issueQuote(f, 'yamada', orderId, {
+      makerQuoteId: mqSakura,
+      mode: 'price',
+      prices: [
+        { order_line_id: lineCounter, unit_price: PRICES.counter },
+        { order_line_id: lineTea, unit_price: PRICES.tea },
+      ],
+      shippingFee: 2000,
+      expenses: 5000,
+    });
+    const priced = await quoteRow(q2);
+    expect([
+      priced.version,
+      priced.total,
+      priced.sales_subtotal,
+      priced.profit,
+    ]).toEqual([2, 193420, 176000, 176000 - COST_SUBTOTAL]);
+    expect((await quoteRow(q1)).status).toBe('superseded');
+    expect(await answerQuote(f, 'sato', orderId, q1, { accept: true })).toBe(
+      false,
+    );
+
+    // A社 agrees to the current quote.
+    expect(await answerQuote(f, 'sato', orderId, q2, { accept: true })).toBe(
+      true,
+    );
+    const [agreed] = await f.owner<{ status: string; agreed_total: number }>(
+      'SELECT status, agreed_total FROM app.orders WHERE id = $1',
+      [orderId],
+    );
+    expect(agreed).toEqual({ status: 'agreed', agreed_total: 193420 });
+    expect((await outbox(f, orderId, 'agreed')).map((r) => r.audience)).toEqual(
+      ['agent', 'agent'],
+    );
+
+    // B社 orders from the adopted maker, delivered straight to the branch.
+    await refused(
+      f.sql(
+        'sato',
+        `UPDATE app.orders SET status = 'ordered', delivery_mode = 'direct' WHERE id = $1`,
+        [orderId],
+      ),
+      '42501',
+    );
+    await f.sql(
+      'yamada',
+      `UPDATE app.orders SET status = 'ordered', delivery_mode = 'direct', delivery_note = '午前中に搬入' WHERE id = $1`,
+      [orderId],
+    );
+    const [ordered] = await f.owner<{ po_number: string; assigned_to: string }>(
+      'SELECT po_number, assigned_to FROM app.orders WHERE id = $1',
+      [orderId],
+    );
+    expect(ordered).toEqual({
+      po_number: `PO-${year}-0001`,
+      assigned_to: f.people.yamada.userId,
+    });
+    const [po] = await outbox(f, orderId, 'ordered');
+    expect([po.audience, po.to_email]).toEqual([
+      'maker',
+      'orders@sakura-supply.example',
+    ]);
+    expect(po.payload.lines?.map((l) => [l.unit_cost, l.cost_amount])).toEqual([
+      [COST.counter, COST.counter],
+      [COST.tea, COST.tea * 3],
+    ]);
+    expect(po.payload.cost_subtotal).toBe(COST_SUBTOTAL);
+    expect(po.payload.destination).toBe(
+      `${CLIENT} 渋谷店 東京都渋谷区（架空）1-2-3`,
+    );
+
+    // The delivery date sends A社 the notice, with selling prices only.
+    await refused(
+      f.sql(
+        'yamada',
+        `UPDATE app.orders SET status = 'scheduled', delivery_date = $2 WHERE id = $1`,
+        [orderId, day(-1)],
+      ),
+      '23514',
+    );
+    await f.sql(
+      'yamada',
+      `UPDATE app.orders SET status = 'scheduled', delivery_date = $2 WHERE id = $1`,
+      [orderId, day(20)],
+    );
+    const notices = await outbox(f, orderId, 'scheduled');
+    expect(notices.map((r) => [r.audience, r.to_email])).toEqual([
+      ['client', 'sato@sample-cafe.example'],
+    ]);
+    const notice = notices[0].payload;
+    expect(Object.keys(notice).sort()).toEqual(
+      [
+        'order_id',
+        'request_number',
+        'title',
+        'client_name',
+        'store_name',
+        'lines',
+        'shipping_fee',
+        'expenses',
+        'subtotal_10',
+        'tax_10',
+        'subtotal_8',
+        'tax_8',
+        'total',
+        'delivery_date',
+        'delivery_mode',
+        'destination',
+        'delivery_note',
+        'org_name',
+        'agent_name',
+        'agent_email',
+      ].sort(),
+    );
+    expect(Object.keys(notice.lines![0]).sort()).toEqual(
+      [
+        'amount',
+        'name',
+        'qty',
+        'spec',
+        'tax_rate',
+        'unit',
+        'unit_price',
+      ].sort(),
+    );
+    expect(notice).toMatchObject({
+      total: 193420,
+      delivery_date: day(20),
+      delivery_mode: 'direct',
+      delivery_note: '午前中に搬入',
+      agent_email: 'yamada@midori.example',
+    });
+    expect(leaks(notice)).toEqual([]);
+    expect(subjectOf('scheduled', 'client', notice)).toBe(
+      `【納期のお知らせ】受付カウンターの入れ替え（R-${year}-0001）`,
+    );
+
+    // Closed for good.
+    await refused(
+      f.sql(
+        'sato',
+        `UPDATE app.orders SET status = 'cancelled' WHERE id = $1`,
+        [orderId],
+      ),
+      '42501',
+      /closed/,
+    );
   });
 
-  it('only admins change the catalog', async () => {
-    await refused(
-      w
-        .sql('buyer', `UPDATE app.catalog_items SET active = false`)
-        .then((r) => {
-          if (!r.length) throw new Error('no rows');
-        }),
+  it('A社 cannot see costs, makers, maker quotes or B社 notes by any SQL path', async () => {
+    const f = await fixture();
+    const { orderId } = await toScheduled(f);
+
+    for (const who of ['sato', 'suzuki'] as const) {
+      for (const table of [
+        'quote_costs',
+        'maker_quotes',
+        'makers',
+        'catalog_items',
+        'catalog_sources',
+      ])
+        expect(
+          await f.sql(who, `SELECT * FROM app.${table}`),
+          `${who} ${table}`,
+        ).toEqual([]);
+      expect(
+        await f.sql(
+          who,
+          `SELECT * FROM app.order_messages WHERE kind = 'note'`,
+        ),
+      ).toEqual([]);
+      await refused(
+        f.sql(
+          who,
+          `INSERT INTO app.makers (org_id, name, email) VALUES ($1, 'x', 'x@example.com')`,
+          [f.orgId],
+        ),
+        '42501',
+      );
+    }
+    // B社 does see them.
+    expect(await f.sql('yamada', 'SELECT * FROM app.quote_costs')).toHaveLength(
+      2,
     );
-    await refused(
-      w.sql(
-        'shibuya',
-        `INSERT INTO app.catalog_sources (org_id, name, kind, created_by) VALUES ($1, 'x', 'csv', $2)`,
-        [w.as.shibuya.orgId, w.as.shibuya.userId],
+    expect(
+      await f.sql('yamada', 'SELECT * FROM app.maker_quotes'),
+    ).toHaveLength(2);
+    expect(
+      await f.sql(
+        'yamada',
+        `SELECT * FROM app.order_messages WHERE kind = 'note'`,
       ),
-      403,
+    ).toHaveLength(1);
+
+    // What A社 can read carries selling figures only.
+    const quotes = await f.sql<
+      Record<string, unknown> & { lines: Record<string, unknown>[] }
+    >('sato', 'SELECT * FROM app.quotes');
+    expect(quotes).toHaveLength(2);
+    for (const q of quotes) {
+      expect(
+        Object.keys(q).filter((k) => /cost|profit|markup|maker/.test(k)),
+      ).toEqual([]);
+      for (const l of q.lines)
+        expect(Object.keys(l).sort()).toEqual([
+          'amount',
+          'line_no',
+          'name',
+          'order_line_id',
+          'qty',
+          'spec',
+          'tax_rate',
+          'unit',
+          'unit_price',
+        ]);
+    }
+    const readable = {
+      orders: await f.sql('sato', 'SELECT * FROM app.orders'),
+      quotes,
+      lines: await f.sql('sato', 'SELECT * FROM app.order_lines'),
+      messages: await f.sql('sato', 'SELECT * FROM app.order_messages'),
+      outbox: await f.sql('sato', 'SELECT * FROM app.outbox'),
+      audit: await f.sql('sato', 'SELECT * FROM app.audit_log'),
+      deliveries: await f.sql(
+        'sato',
+        'SELECT * FROM app.order_deliveries($1)',
+        [orderId],
+      ),
+    };
+    expect(readable.outbox.length).toBeGreaterThan(0);
+    expect(readable.outbox.every((r) => r.audience === 'client')).toBe(true);
+    expect(readable.audit.length).toBeGreaterThan(0);
+    expect(readable.audit.some((r) => r.agent_only)).toBe(false);
+    expect(readable.deliveries.some((r) => r.audience === 'maker')).toBe(false);
+    expect(leaks(readable)).toEqual([]);
+    // The same scan finds the costs in what B社 reads (the check is real).
+    expect(
+      leaks(await f.sql('yamada', 'SELECT * FROM app.quote_costs')).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('only app.issue_quote creates quotes, and only for B社 of the same organization', async () => {
+    const f = await fixture();
+    const orderId = await submit(f, 'sato');
+    const [line] = await outline(f, orderId, [OUTLINE[0]]);
+    const mq = await askMaker(f, orderId, f.makers.sakura);
+    await recordMaker(f, mq, [{ order_line_id: line, unit_cost: 1000 }]);
+    const args = { makerQuoteId: mq, mode: 'markup' as const, markupBp: 1000 };
+
+    await refused(
+      issueQuote(f, 'sato', orderId, args),
+      '42501',
+      /only the agent/,
     );
+    await refused(
+      issueQuote(f, 'outsider', orderId, args),
+      '42501',
+      /order not found/,
+    );
+    await refused(
+      f.sql(
+        'yamada',
+        `INSERT INTO app.quotes (org_id, order_id, version, lines, subtotal_10, tax_10, subtotal_8, tax_8, total, valid_until, issued_by)
+         VALUES ($1, $2, 1, '[]', 0, 0, 0, 0, 0, $3, $4)`,
+        [f.orgId, orderId, day(7), f.people.yamada.userId],
+      ),
+      '42501',
+      /permission denied/,
+    );
+    await refused(
+      f.sql('yamada', `UPDATE app.orders SET status = 'quoted' WHERE id = $1`, [
+        orderId,
+      ]),
+      '42501',
+    );
+    // An expired maker quote cannot back a quote.
+    // Age it as the owner, bypassing the triggers that forbid it.
+    await f.pg.exec('SET session_replication_role = replica');
+    await f.owner(
+      `UPDATE app.maker_quotes SET valid_until = current_date - 2 WHERE id = $1`,
+      [mq],
+    );
+    await f.pg.exec('SET session_replication_role = origin');
+    await refused(issueQuote(f, 'yamada', orderId, args), '23514', /expired/);
+    expect(await f.owner('SELECT id FROM app.quotes')).toEqual([]);
+  });
+});
+
+describe('the intake form', () => {
+  it('refuses a request missing a required answer, without using a number', async () => {
+    const f = await fixture();
+    const missing = validAnswers.filter((a) => a.key !== 'place');
+    await refused(
+      submit(f, 'sato', { answers: missing }),
+      '23514',
+      /answer place is required/,
+    );
+    expect(validateAnswers(DEFAULT_REQUEST_FIELDS, missing)).toEqual({
+      ok: false,
+      errors: { place: '入力してください。' },
+    });
+    await refused(
+      submit(f, 'sato', {
+        answers: [...validAnswers, { key: 'secret', value: 'x' }],
+      }),
+      '23514',
+      /unknown answer secret/,
+    );
+    const id = await submit(f, 'sato');
+    const [o] = await f.owner<{ request_number: string }>(
+      'SELECT request_number FROM app.orders WHERE id = $1',
+      [id],
+    );
+    expect(o.request_number).toBe(`R-${year}-0001`);
   });
 });

@@ -1,188 +1,34 @@
 // Regressions for the issues the pre-publication review found
-// (docs/security-publication.md).
+// (docs/security-publication.md). The cart, catalog-ordering and service-level
+// cases went with the cart (schema version 2); see the agency-flow commit.
 import http from 'node:http';
 import zlib from 'node:zlib';
 import type { AddressInfo } from 'node:net';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { demoWorld, itemId, orderBy, type World } from './helpers';
-import {
-  addToCart,
-  getOrder,
-  importFromSite,
-  issueQuote,
-  listCatalog,
-  listNotifications,
-  listSources,
-  orderStats,
-  setCartLine,
-  storageKey,
-  submitCart,
-  updateItem,
-} from '../src/server/service';
-import { AppError } from '../src/server/db';
-import { demoSupplierFetcher } from '../src/server/demo-supplier';
-import { FetchError, createFetcher, isPublicAddress } from '../src/server/net';
+import { describe, expect, it } from 'vitest';
+import { fixture, refused } from './helpers';
+import { createFetcher, isPublicAddress } from '../src/server/net';
 import { parseProductPage } from '../src/core/catalog/html';
 import { cleanText } from '../src/core/catalog/product';
 import { isAllowed, parseRobots } from '../src/core/catalog/robots';
-import { addDays, todayInJapan } from '../src/server/config';
 
-let w: World;
-beforeEach(async () => {
-  w = await demoWorld();
-});
-
-const status = (p: Promise<unknown>) =>
-  p.then(
-    () => 'ok',
-    (e) => (e instanceof AppError ? e.status : String(e)),
-  );
-
-describe('workflow', () => {
-  it('a cart cannot be sent with an item headquarters stopped listing', async () => {
-    const { orderId } = await addToCart(
-      w.deps,
-      w.as.omiya,
-      await itemId(w, 'SK-1002'),
-      1,
-    );
-    await updateItem(w.deps, w.as.admin, await itemId(w, 'SK-1002'), {
-      active: false,
-    });
-    expect(await status(submitCart(w.deps, w.as.omiya, orderId, {}))).toBe(409);
-  });
-
-  it('sending a cart re-copies today’s catalog price', async () => {
-    const id = await itemId(w, 'SK-1002');
-    const { orderId } = await addToCart(w.deps, w.as.omiya, id, 1);
-    await w.pg.query(
-      `UPDATE app.catalog_items SET listed_price = 1100 WHERE id = $1`,
-      [id],
-    );
-    await submitCart(w.deps, w.as.omiya, orderId, {});
-    const order = await getOrder(w.deps, w.as.buyer, orderId);
-    expect(order.lines[0].unit_price).toBe(1000);
-  });
-
-  it('an empty or null quantity does not delete a cart line', async () => {
-    const { orderId } = await addToCart(
-      w.deps,
-      w.as.omiya,
-      await itemId(w, 'SK-1002'),
-      2,
-    );
-    const [line] = await w.sql(
-      'omiya',
-      'SELECT id FROM app.order_lines WHERE order_id = $1',
-      [orderId],
-    );
-    for (const bad of ['', null, false, [], '1.5'])
-      expect(
-        await status(setCartLine(w.deps, w.as.omiya, line.id as string, bad)),
-      ).toBe(400);
-    const left = await w.sql(
-      'omiya',
-      'SELECT qty FROM app.order_lines WHERE order_id = $1',
-      [orderId],
-    );
-    expect(left).toEqual([{ qty: 2 }]);
-  });
-
-  it('impossible dates are a 400, not a server error', async () => {
-    const { orderId } = await addToCart(
-      w.deps,
-      w.as.omiya,
-      await itemId(w, 'SK-1002'),
-      1,
-    );
-    expect(
-      await status(
-        submitCart(w.deps, w.as.omiya, orderId, { neededBy: '2026-02-30' }),
-      ),
-    ).toBe(400);
-    const o = await orderBy(w, 'R-2026-0004');
-    const order = await getOrder(w.deps, w.as.buyer, o.id);
-    expect(
-      await status(
-        issueQuote(w.deps, w.as.buyer, o.id, {
-          lines: order.lines.map((l) => ({
-            orderLineId: l.id,
-            unitPrice: 1,
-            qty: 1,
-          })),
-          shippingFee: 0,
-          validUntil: `${addDays(todayInJapan(), 30).slice(0, 7)}-32`,
-          basedOn: null,
-        }),
-      ),
-    ).toBe(400);
-  });
-
+describe('database roles', () => {
   it('the request role cannot call the login functions', async () => {
-    expect(
-      await status(
-        w.sql(
-          'admin',
-          `SELECT * FROM app.auth_lookup('sato@sample-cafe.example')`,
-        ),
+    const f = await fixture();
+    await refused(
+      f.sql(
+        'tanaka',
+        `SELECT * FROM app.auth_lookup('sato@sample-cafe.example')`,
       ),
-    ).toBe(403);
-    expect(
-      await status(
-        w.sql(
-          'admin',
-          `SELECT app.auth_create_session('x', $1, $2, interval '1 day')`,
-          [w.as.shibuya.userId, w.as.shibuya.orgId],
-        ),
+      '42501',
+    );
+    await refused(
+      f.sql(
+        'tanaka',
+        `SELECT app.auth_create_session('x', $1, $2, interval '1 day')`,
+        [f.people.sato.userId, f.orgId],
       ),
-    ).toBe(403);
-  });
-
-  it('lists notifications newest first (by number, not as text)', async () => {
-    const mails = await listNotifications(w.deps, w.as.buyer);
-    const ids = mails.map((m) => Number(m.id));
-    expect(ids).toEqual([...ids].sort((a, b) => b - a));
-    expect(mails[0].subject).toBe('【発注依頼】渋谷店 R-2026-0004');
-  });
-
-  it('counts every order for the tabs, not a page of them', async () => {
-    expect(await orderStats(w.deps, w.as.buyer)).toMatchObject({
-      todo: 1,
-      waiting: 1,
-      open: 2,
-      ordered: 1,
-      all: 4,
-    });
-    expect(await orderStats(w.deps, w.as.shibuya)).toMatchObject({
-      todo: 0,
-      waiting: 1,
-      ordered: 1,
-      all: 2,
-    });
-  });
-});
-
-describe('imports', () => {
-  it('a partial read does not take unread items off the catalog', async () => {
-    const real = demoSupplierFetcher();
-    w.deps.fetcher = async (url, o) => {
-      if (url.endsWith('/items/SK-1001.html'))
-        throw new FetchError('サーバーが 503 を返しました', 'http', 503);
-      return real(url, o);
-    };
-    const [source] = await listSources(w.deps, w.as.admin);
-    const summary = await importFromSite(w.deps, w.as.admin, source.id);
-    expect(summary).toMatchObject({ found: 22, missing: 0, complete: false });
-    const { items } = await listCatalog(w.deps, w.as.admin, { q: 'SK-1001' });
-    expect(items[0].available).toBe(true);
-  });
-
-  it('long keys stay distinct instead of being cut into one', () => {
-    const a = `url:https://shop.example/${'x'.repeat(600)}/a`;
-    const b = `url:https://shop.example/${'x'.repeat(600)}/b`;
-    expect(storageKey(a)).not.toBe(storageKey(b));
-    expect(storageKey(a).length).toBeLessThanOrEqual(500);
-    expect(storageKey('sku:A1')).toBe('sku:A1');
+      '42501',
+    );
   });
 });
 
