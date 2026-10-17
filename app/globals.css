@@ -3477,10 +3477,9 @@ table.list {
 }
 .line-grid {
   display: grid;
-  grid-template-columns: minmax(140px, 2fr) minmax(
-      120px,
-      2fr
-    ) 84px 84px 96px auto;
+  grid-template-columns:
+    minmax(140px, 2fr) minmax(120px, 2fr)
+    84px 84px 96px auto;
   gap: 8px;
   align-items: end;
 }
