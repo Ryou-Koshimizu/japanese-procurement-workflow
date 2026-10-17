@@ -632,6 +632,70 @@ describe('the agency workflow', () => {
     await refused(issueQuote(f, 'yamada', orderId, args), '23514', /expired/);
     expect(await f.owner('SELECT id FROM app.quotes')).toEqual([]);
   });
+
+  it('closing a request withdraws its open maker quotes, without mail to makers', async () => {
+    const f = await fixture();
+    const toSourcing = async () => {
+      const orderId = await submit(f, 'sato');
+      const [line] = await outline(f, orderId, [OUTLINE[0]]);
+      const received = await askMaker(f, orderId, f.makers.sakura);
+      await askMaker(f, orderId, f.makers.aoba);
+      await recordMaker(f, received, [
+        { order_line_id: line, unit_cost: 1000 },
+      ]);
+      return { orderId, received };
+    };
+    // B社 declines while sourcing.
+    const declined = await toSourcing();
+    await f.sql(
+      'yamada',
+      `UPDATE app.orders SET status = 'rejected', reject_reason = '取り扱いがありません' WHERE id = $1`,
+      [declined.orderId],
+    );
+    // A社 withdraws while reviewing a quote based on a maker quote: A社
+    // cannot see maker quotes, and they are closed all the same.
+    const withdrawn = await toSourcing();
+    await issueQuote(f, 'yamada', withdrawn.orderId, {
+      makerQuoteId: withdrawn.received,
+      mode: 'markup',
+      markupBp: 1000,
+    });
+    await f.sql(
+      'sato',
+      `UPDATE app.orders SET status = 'cancelled' WHERE id = $1`,
+      [withdrawn.orderId],
+    );
+    expect(
+      await f.owner(
+        'SELECT order_id, status FROM app.maker_quotes ORDER BY order_id, maker_id',
+      ),
+    ).toEqual(
+      [declined.orderId, declined.orderId, withdrawn.orderId, withdrawn.orderId]
+        .sort()
+        .map((order_id) => ({ order_id, status: 'withdrawn' })),
+    );
+    expect(
+      await f.owner(
+        `SELECT event, count(*)::int AS n FROM app.outbox WHERE audience = 'maker' GROUP BY event`,
+      ),
+    ).toEqual([{ event: 'rfq', n: 4 }]);
+    // A社 itself still cannot touch maker quotes.
+    const open = await toSourcing();
+    expect(
+      await f.sql(
+        'sato',
+        `UPDATE app.maker_quotes SET status = 'withdrawn' WHERE order_id = $1 RETURNING id`,
+        [open.orderId],
+      ),
+    ).toEqual([]);
+    expect(
+      await f.owner(
+        'SELECT status FROM app.maker_quotes WHERE order_id = $1 ORDER BY status',
+        [open.orderId],
+      ),
+    ).toEqual([{ status: 'received' }, { status: 'requested' }]);
+  });
+
 });
 
 describe('the intake form', () => {

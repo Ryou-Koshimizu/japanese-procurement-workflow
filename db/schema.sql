@@ -1018,6 +1018,22 @@ END $$;
 CREATE TRIGGER order_reopened AFTER UPDATE ON app.orders
   FOR EACH ROW EXECUTE FUNCTION app.order_reopened();
 
+-- Declining or withdrawing a request closes its open maker quotes in the same
+-- transaction. SECURITY DEFINER because A社 withdraws requests and cannot see
+-- maker quotes; app.order_guard has already checked who closed the request,
+-- and app.maker_quote_guard accepts this change only from a trigger on a
+-- closed request. No mail goes to the makers.
+CREATE FUNCTION app.order_closed() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = app, pg_temp AS $$
+BEGIN
+  UPDATE app.maker_quotes SET status = 'withdrawn'
+   WHERE order_id = NEW.id AND status IN ('requested', 'received');
+  RETURN NULL;
+END $$;
+CREATE TRIGGER order_quotes_closed AFTER UPDATE ON app.orders
+  FOR EACH ROW WHEN (NEW.status IN ('rejected', 'cancelled') AND OLD.status IS DISTINCT FROM NEW.status)
+  EXECUTE FUNCTION app.order_closed();
+
 -- Hearing -------------------------------------------------------------------------
 
 CREATE FUNCTION app.message_guard() RETURNS trigger
@@ -1135,8 +1151,13 @@ DECLARE
   seen uuid[] := '{}';
   lines_out jsonb;
   sum_cost bigint;
+  -- app.order_closed withdrawing the open maker quotes of a declined or
+  -- withdrawn request (A社 may be the one who closed it).
+  closing boolean := TG_OP = 'UPDATE' AND pg_trigger_depth() > 1 AND NEW.status = 'withdrawn'
+    AND EXISTS (SELECT 1 FROM app.orders
+                 WHERE id = NEW.order_id AND status IN ('rejected', 'cancelled'));
 BEGIN
-  IF NOT app.is_agent() THEN
+  IF NOT app.is_agent() AND NOT closing THEN
     RAISE EXCEPTION 'only the agent deals with makers' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO o FROM app.orders
@@ -1224,10 +1245,11 @@ BEGIN
                             OLD.cost_subtotal, OLD.answered_at) THEN
       RAISE EXCEPTION 'only the status and a note change' USING ERRCODE = '42501';
     END IF;
-    IF o.status NOT IN ('sourcing', 'quoted') AND NOT (NEW.status = 'withdrawn' AND o.status = 'requested') THEN
+    IF o.status NOT IN ('sourcing', 'quoted') AND NOT (NEW.status = 'withdrawn' AND o.status = 'requested')
+       AND NOT closing THEN
       RAISE EXCEPTION 'maker quotes change while sourcing' USING ERRCODE = '42501';
     END IF;
-    IF EXISTS (SELECT 1 FROM app.quotes q JOIN app.quote_costs c ON c.quote_id = q.id
+    IF NOT closing AND EXISTS (SELECT 1 FROM app.quotes q JOIN app.quote_costs c ON c.quote_id = q.id
                 WHERE q.id = o.current_quote_id AND q.status = 'sent' AND c.maker_quote_id = OLD.id) THEN
       RAISE EXCEPTION 'the quote the branch is reviewing is based on this maker quote' USING ERRCODE = '23514';
     END IF;
@@ -1820,7 +1842,7 @@ $$;
 -- Every SECURITY DEFINER function is closed to PUBLIC; procurement_user may
 -- call issue_quote and order_deliveries, procurement_auth the auth functions.
 REVOKE ALL ON FUNCTION app.auth_lookup(text), app.auth_create_session(text, uuid, uuid, interval),
-  app.auth_session(text), app.auth_delete_session(text), app.order_numbering(),
+  app.auth_session(text), app.auth_delete_session(text), app.order_numbering(), app.order_closed(),
   app.order_events(), app.notify(app.orders, text, text, jsonb), app.order_snapshot(uuid),
   app.quote_snapshot(uuid), app.delivery_destination(uuid), app.quote_audit(), app.catalog_audit(),
   app.maker_quote_events(), app.message_audit(), app.order_deliveries(uuid),
