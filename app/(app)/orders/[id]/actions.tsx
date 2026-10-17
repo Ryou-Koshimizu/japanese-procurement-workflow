@@ -1169,15 +1169,19 @@ export function PlaceOrderForm({
       </fieldset>
       <div className="field">
         <label htmlFor="po-note">
-          発注メモ（任意・メーカーへの発注書に載ります）
+          発注メモ（任意・メーカーの発注書とA社へのお知らせの両方に載ります）
         </label>
         <textarea
           id="po-note"
           maxLength={500}
           value={note}
           placeholder="例：平日8時までに搬入してください。"
+          aria-describedby="po-note-help"
           onChange={(e) => setNote(e.target.value)}
         />
+        <span className="help" id="po-note-help">
+          A社にも見えるので、仕入値やメーカー名は書かないでください。
+        </span>
       </div>
       <ErrorLine message={a.error} />
       <div className="actions">
