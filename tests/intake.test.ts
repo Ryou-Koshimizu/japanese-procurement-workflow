@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_REQUEST_FIELDS,
   FIELD_KINDS,
+  safeHttpUrl,
   trimText,
   validateAnswers,
   validateFieldDefinition,
@@ -266,5 +267,21 @@ describe('field definitions', () => {
 
   it('trims spaces, tabs, line breaks and full-width spaces at both ends', () => {
     expect(trimText('　 \t\n 棚 の 上 \n　')).toBe('棚 の 上');
+  });
+});
+
+describe('safe web addresses', () => {
+  it('links only http and https addresses that parse', () => {
+    expect(safeHttpUrl('https://example.com/a b')).toBe(
+      'https://example.com/a%20b',
+    );
+    expect(safeHttpUrl('http://example.com')).toBe('http://example.com/');
+    for (const bad of [
+      'javascript:alert(1)',
+      'data:text/html,x',
+      'http://[',
+      'example.com',
+    ])
+      expect(safeHttpUrl(bad)).toBeNull();
   });
 });

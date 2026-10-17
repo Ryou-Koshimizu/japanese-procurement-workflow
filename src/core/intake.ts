@@ -109,6 +109,19 @@ export const DEFAULT_REQUEST_FIELDS: readonly RequestField[] = [
 export const trimText = (s: string) =>
   s.replace(/^[ \t\n\r\f\v　]+|[ \t\n\r\f\v　]+$/g, '');
 
+/**
+ * A web address that is safe to link to: it parses as a URL and its scheme is
+ * http or https. Returns the normalized address, or null for anything else.
+ */
+export function safeHttpUrl(value: string): string | null {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Length in characters (code points), like PostgreSQL's length(). */
 export const textLength = (s: string) => [...s].length;
 
@@ -163,7 +176,11 @@ function checkValue(
         };
       break;
     case 'url':
-      if (!/^https?:\/\/\S+$/.test(s) || textLength(s) > MAX_LENGTH.url)
+      if (
+        !/^https?:\/\/\S+$/.test(s) ||
+        textLength(s) > MAX_LENGTH.url ||
+        !safeHttpUrl(s)
+      )
         return { error: MESSAGES.url };
       break;
     case 'date':

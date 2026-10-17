@@ -42,6 +42,7 @@ import {
   stockLabels,
 } from '../../../../src/core/workflow';
 import type { NotificationEvent } from '../../../../src/core/notification';
+import { safeHttpUrl } from '../../../../src/core/intake';
 import { auditText } from '../../../../src/ui/audit';
 import {
   StatusChip,
@@ -458,9 +459,9 @@ export default async function OrderPage({
                   <dd>
                     {a.kind === 'number' ? (
                       Number(a.value).toLocaleString('ja-JP')
-                    ) : a.kind === 'url' ? (
+                    ) : a.kind === 'url' && safeHttpUrl(String(a.value)) ? (
                       <a
-                        href={String(a.value)}
+                        href={safeHttpUrl(String(a.value))!}
                         target="_blank"
                         rel="noreferrer noopener"
                       >
