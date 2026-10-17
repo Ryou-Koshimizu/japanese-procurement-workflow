@@ -1593,9 +1593,10 @@ BEGIN
       PERFORM app.notify(NEW, 'agreed', 'agent', payload || app.quote_snapshot(NEW.current_quote_id));
     WHEN NEW.status = 'ordered' THEN
       -- The purchase order (発注書) to the maker of the adopted maker quote.
+      -- Numbers and the outline only: A社's free-text title stays out.
       SELECT mk.email,
              jsonb_build_object(
-               'po_number', NEW.po_number, 'request_number', NEW.request_number, 'title', NEW.title,
+               'po_number', NEW.po_number, 'request_number', NEW.request_number,
                'org_name', org.name, 'maker_name', mk.name,
                'lines', (SELECT jsonb_agg(jsonb_build_object(
                                   'name', ol.name, 'spec', ol.spec, 'qty', ol.qty, 'unit', ol.unit,
@@ -1652,8 +1653,8 @@ END $$;
 CREATE TRIGGER order_events AFTER UPDATE ON app.orders
   FOR EACH ROW EXECUTE FUNCTION app.order_events();
 
--- Asking a maker sends it the request for a quote: the outline only, never
--- A社's name, branch or address.
+-- Asking a maker sends it the request for a quote: the request number and the
+-- outline only, never A社's name, branch, address or free-text title.
 CREATE FUNCTION app.maker_quote_events() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = app, pg_temp AS $$
 BEGIN
@@ -1668,7 +1669,7 @@ BEGIN
     INSERT INTO app.outbox (org_id, order_id, event, audience, to_email, payload)
     SELECT NEW.org_id, NEW.order_id, 'rfq', 'maker', mk.email,
            jsonb_build_object(
-             'request_number', o.request_number, 'title', o.title, 'needed_by', o.needed_by,
+             'request_number', o.request_number, 'needed_by', o.needed_by,
              'org_name', org.name, 'maker_name', mk.name, 'agent_name', u.name, 'agent_email', u.email,
              'lines', (SELECT coalesce(jsonb_agg(jsonb_build_object(
                                 'name', l.name, 'spec', l.spec, 'qty', l.qty, 'unit', l.unit)

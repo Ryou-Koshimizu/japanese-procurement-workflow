@@ -125,8 +125,9 @@ export function subjectOf(
       return `【B社からの質問】${what}`;
     case 'answered':
       return `【質問への回答】${store} ${what}`;
+    // To a maker: numbers only, never A社's free-text title.
     case 'rfq':
-      return `【見積のお願い】${what} ${oneLine(p.org_name)}`;
+      return `【見積のご依頼】${oneLine(p.request_number)}（${oneLine(p.org_name)}）`;
     case 'quoted':
       return `【見積書】${what} 合計 ${yen(p.total)}（税込）`;
     case 'revision':
@@ -134,7 +135,7 @@ export function subjectOf(
     case 'agreed':
       return `【合意】${store} ${what} 合計 ${yen(p.total)}（税込）`;
     case 'ordered':
-      return `【発注書】${oneLine(p.po_number)} ${oneLine(p.org_name)}`;
+      return `【発注書】${oneLine(p.po_number)}（${oneLine(p.org_name)}）`;
     case 'scheduled':
       return `【納期のお知らせ】${what}`;
     case 'rejected':
@@ -220,12 +221,12 @@ export function bodyOf(
       );
       break;
     case 'rfq':
-      // To a maker: no A社 name, branch or address (the database leaves them out).
+      // To a maker: no A社 name, branch, address or free-text title (the
+      // database leaves them out).
       out.push(
         `${oneLine(p.org_name)}の${oneLine(p.agent_name)}です。下記の商品の規格・在庫・金額（税抜）・納期をお知らせください。`,
         '',
         `見積依頼番号：${oneLine(p.request_number)}`,
-        `件名：${oneLine(p.title)}`,
       );
       if (p.needed_by) out.push(`希望納期：${formatDate(p.needed_by)}`);
       out.push(
@@ -277,7 +278,7 @@ export function bodyOf(
         `${oneLine(p.org_name)}より、下記のとおり発注いたします。`,
         '',
         `発注番号：${oneLine(p.po_number)}`,
-        `件名：${oneLine(p.title)}`,
+        `見積依頼番号：${oneLine(p.request_number)}`,
         `届け方：${p.delivery_mode ? deliveryModeLabels[p.delivery_mode] : '—'}`,
         `届け先：${oneLine(p.destination)}`,
       );

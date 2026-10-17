@@ -100,6 +100,21 @@ describe('notifications', () => {
         expect(subjectOf(event, audience, scheduled)).not.toMatch(/[\r\n]/);
   });
 
+  it("names the request to a maker by number, never by A社's title", () => {
+    expect(subjectOf('rfq', 'maker', scheduled)).toBe(
+      '【見積のご依頼】R-2026-0001（みどり購買サポート株式会社）',
+    );
+    expect(
+      subjectOf('ordered', 'maker', {
+        ...scheduled,
+        po_number: 'PO-2026-0001',
+      }),
+    ).toBe('【発注書】PO-2026-0001（みどり購買サポート株式会社）');
+    const rfq = bodyOf('rfq', 'maker', scheduled, null);
+    expect(rfq).toContain('見積依頼番号：R-2026-0001');
+    expect(rfq).not.toMatch(/件名|Bcc/);
+  });
+
   it('gives a maker a purchase order with costs and no internal link', () => {
     const body = bodyOf(
       'ordered',
@@ -122,6 +137,8 @@ describe('notifications', () => {
       },
       'https://orders.example.com',
     );
+    expect(body).toContain('見積依頼番号：R-2026-0001');
+    expect(body).not.toContain('受付カウンター Bcc');
     expect(body).toContain('¥120,000 × 1台 = ¥120,000');
     expect(body).toContain('合計（税抜）：¥121,500');
     expect(body).toContain('届け先：株式会社サンプルカフェ 渋谷店');

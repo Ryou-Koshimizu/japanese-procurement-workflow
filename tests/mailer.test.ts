@@ -42,9 +42,11 @@ describe('delivering the outbox', () => {
       'yamada@midori.example',
     ]);
     const rfq = sent.find((m) => m.to.startsWith('orders@'))!;
-    expect(rfq.subject).toMatch(/^【見積のお願い】受付カウンターの入れ替え/);
-    // The maker learns nothing about A社.
-    expect(rfq.text).not.toMatch(/渋谷|サンプルカフェ|sample-cafe/);
+    expect(rfq.subject).toMatch(
+      /^【見積のご依頼】R-\d{4}-0001（みどり購買サポート株式会社）$/,
+    );
+    // The maker learns nothing about A社, not even its free-text title.
+    expect(rfq.text).not.toMatch(/渋谷|サンプルカフェ|sample-cafe|入れ替え/);
     expect(await deliverOutbox(f.db, smtp, null, 100)).toEqual({
       sent: 0,
       failed: 0,

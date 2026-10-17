@@ -244,7 +244,10 @@ describe('the agency workflow', () => {
       ['maker', 'sales@aoba-juki.example'],
     ]);
     for (const r of rfq) {
-      expect(JSON.stringify(r.payload)).not.toMatch(/サンプルカフェ|渋谷|架空/);
+      expect(JSON.stringify(r.payload)).not.toMatch(
+        /サンプルカフェ|渋谷|架空|入れ替え/,
+      );
+      expect(r.payload).not.toHaveProperty('title');
       expect(r.payload.lines).toEqual([
         {
           name: '受付カウンター',
@@ -413,6 +416,7 @@ describe('the agency workflow', () => {
       [COST.tea, COST.tea * 3],
     ]);
     expect(po.payload.cost_subtotal).toBe(COST_SUBTOTAL);
+    expect(po.payload).not.toHaveProperty('title');
     expect(po.payload.destination).toBe(
       `${CLIENT} 渋谷店 東京都渋谷区（架空）1-2-3`,
     );
