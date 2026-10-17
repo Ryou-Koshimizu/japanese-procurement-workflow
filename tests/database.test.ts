@@ -696,6 +696,58 @@ describe('the agency workflow', () => {
     ).toEqual([{ status: 'received' }, { status: 'requested' }]);
   });
 
+  it('the notification helpers give A社 and other organizations nothing', async () => {
+    const f = await fixture();
+    // 梅田店's request, up to the purchase order (so it has a destination).
+    const theirs = await submit(f, 'suzuki');
+    const [line] = await outline(f, theirs, [OUTLINE[0]]);
+    const mq = await askMaker(f, theirs, f.makers.sakura);
+    await recordMaker(f, mq, [{ order_line_id: line, unit_cost: 1000 }]);
+    const quoteId = await issueQuote(f, 'yamada', theirs, {
+      makerQuoteId: mq,
+      mode: 'markup',
+      markupBp: 1000,
+    });
+    await answerQuote(f, 'suzuki', theirs, quoteId, { accept: true });
+    await f.sql(
+      'yamada',
+      `UPDATE app.orders SET status = 'ordered', delivery_mode = 'direct' WHERE id = $1`,
+      [theirs],
+    );
+    const mine = await submit(f, 'sato');
+    const calls = [
+      ['SELECT app.order_snapshot($1) AS v', theirs],
+      ['SELECT app.quote_snapshot($1) AS v', quoteId],
+      ['SELECT app.delivery_destination($1) AS v', theirs],
+    ] as const;
+    const notify = `SELECT app.notify(o, 'scheduled', 'client', '{"total": 1}') FROM app.orders o WHERE o.id = $1`;
+
+    // As shipped: procurement_user cannot call any of them.
+    for (const [sql, id] of calls)
+      await refused(f.sql('sato', sql, [id]), '42501');
+    await refused(f.sql('sato', notify, [mine]), '42501');
+
+    // Even after a careless broad grant they run as the caller: row-level
+    // security hides other branches and organizations, and nobody may write
+    // to the outbox directly.
+    await f.owner(
+      `GRANT EXECUTE ON FUNCTION app.order_snapshot(uuid), app.quote_snapshot(uuid),
+         app.delivery_destination(uuid), app.notify(app.orders, text, text, jsonb) TO procurement_user`,
+    );
+    for (const who of ['sato', 'outsider'] as const)
+      for (const [sql, id] of calls)
+        expect(await f.sql(who, sql, [id]), `${who} ${sql}`).toEqual([
+          { v: null },
+        ]);
+    await refused(f.sql('sato', notify, [mine]), '42501');
+    await refused(f.sql('yamada', notify, [theirs]), '42501');
+    // The same calls do return data where the caller may read it.
+    expect(
+      await f.sql('yamada', 'SELECT app.delivery_destination($1) AS v', [
+        theirs,
+      ]),
+    ).toEqual([{ v: `${CLIENT} 梅田店 大阪府大阪市（架空）4-5-6` }]);
+  });
 });
 
 describe('the intake form', () => {

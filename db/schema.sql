@@ -1479,9 +1479,14 @@ CREATE TRIGGER quote_answered AFTER UPDATE ON app.quotes
 -- Payloads for A社 (audience 'client') are built from A社-visible data only:
 -- the order, its branch and the quote's selling prices. Costs appear only in
 -- payloads to makers, which only B社 reads.
+--
+-- The four helpers below run as their caller (no SECURITY DEFINER): their only
+-- caller, the definer trigger app.order_events, runs them as the owner, while a
+-- direct call would see only what the caller's row-level security allows and
+-- could not write to the outbox at all.
 
 CREATE FUNCTION app.order_snapshot(p_order uuid) RETURNS jsonb
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = app, pg_temp AS $$
+LANGUAGE sql STABLE SET search_path = app, pg_temp AS $$
   SELECT jsonb_build_object(
     'order_id', o.id, 'request_number', o.request_number, 'title', o.title,
     'org_name', org.name, 'client_name', org.client_name, 'store_name', s.name,
@@ -1495,7 +1500,7 @@ $$;
 
 -- Selling prices only (app.quotes has no cost columns).
 CREATE FUNCTION app.quote_snapshot(p_quote uuid) RETURNS jsonb
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = app, pg_temp AS $$
+LANGUAGE sql STABLE SET search_path = app, pg_temp AS $$
   SELECT jsonb_build_object(
     'quote_version', q.version, 'valid_until', q.valid_until, 'lines', q.lines,
     'shipping_fee', q.shipping_fee, 'expenses', q.expenses, 'subtotal_10', q.subtotal_10,
@@ -1510,7 +1515,7 @@ $$;
 
 -- Where the goods go: A社's branch (direct from the maker) or B社 (via B社).
 CREATE FUNCTION app.delivery_destination(p_order uuid) RETURNS text
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = app, pg_temp AS $$
+LANGUAGE sql STABLE SET search_path = app, pg_temp AS $$
   SELECT CASE o.delivery_mode
            WHEN 'direct' THEN concat_ws(' ', org.client_name, s.name, s.address)
            WHEN 'via_agent' THEN concat_ws(' ', org.name, org.address) END
@@ -1524,7 +1529,7 @@ $$;
 -- requesting branch, 'agent' is B社 (agents and admins).
 CREATE FUNCTION app.notify(p_order app.orders, p_event text, p_audience text, p_payload jsonb)
 RETURNS void
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = app, pg_temp AS $$
+LANGUAGE plpgsql SET search_path = app, pg_temp AS $$
 BEGIN
   INSERT INTO app.outbox (org_id, order_id, event, audience, to_user_id, to_email, payload)
   SELECT p_order.org_id, p_order.id, p_event, p_audience, u.id, u.email, p_payload
@@ -1839,8 +1844,10 @@ LANGUAGE sql SECURITY DEFINER SET search_path = app, pg_temp AS $$
   DELETE FROM app.sessions WHERE token_hash = p_token_hash
 $$;
 
--- Every SECURITY DEFINER function is closed to PUBLIC; procurement_user may
--- call issue_quote and order_deliveries, procurement_auth the auth functions.
+-- Closed to PUBLIC: every SECURITY DEFINER function except current_role() and
+-- current_store_id() (they read only the caller's own membership), and the
+-- notification helpers (which run as their caller). procurement_user may call
+-- issue_quote and order_deliveries, procurement_auth the auth functions.
 REVOKE ALL ON FUNCTION app.auth_lookup(text), app.auth_create_session(text, uuid, uuid, interval),
   app.auth_session(text), app.auth_delete_session(text), app.order_numbering(), app.order_closed(),
   app.order_events(), app.notify(app.orders, text, text, jsonb), app.order_snapshot(uuid),
