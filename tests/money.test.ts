@@ -4,8 +4,11 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  costSubtotal,
   priceBeforeTax,
+  quoteProfit,
   quoteTotals,
+  sellingPrice,
   taxAmount,
   parseYen,
   yen,
@@ -80,6 +83,29 @@ describe('tax and price rules', () => {
       tax8: 26,
       total: 467,
     });
+  });
+
+  it('marks up cost in basis points, rounding up to whole yen', () => {
+    expect(sellingPrice(1, 1)).toBe(2);
+    expect(sellingPrice(1, 0)).toBe(1);
+    expect(sellingPrice(1, 30000)).toBe(4);
+    expect(sellingPrice(10000, 2500)).toBe(12500);
+    expect(sellingPrice(9999, 1)).toBe(10000);
+    expect(sellingPrice(100_000_000, 30000)).toBe(400_000_000);
+  });
+
+  it('taxes shipping and expenses at 10% and works out the profit', () => {
+    expect(
+      quoteTotals([{ unitPrice: 1000, qty: 1, taxRate: 8 }], 500, 300),
+    ).toEqual({
+      subtotal10: 800,
+      tax10: 80,
+      subtotal8: 1000,
+      tax8: 80,
+      total: 1960,
+    });
+    expect(costSubtotal([{ unitCost: 700, qty: 3 }], 250)).toBe(2350);
+    expect(quoteProfit(2350, 2000)).toBe(-350);
   });
 
   it('parses and formats yen', () => {
