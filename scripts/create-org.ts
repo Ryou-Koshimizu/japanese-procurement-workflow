@@ -1,14 +1,19 @@
-// Create an organization with its stores and people in a live database.
+// Create an organization (B社, the agency) for its client company (A社),
+// with A社's branches, the people of both companies and the default intake
+// form, in a live database.
 //
 //   npm run org:create -- org.json
 //
 // org.json:
 //   {
-//     "name": "株式会社〇〇",
-//     "stores": [{ "code": "S01", "name": "渋谷店" }],
+//     "name": "〇〇購買サポート株式会社",
+//     "client_name": "株式会社〇〇",
+//     "address": "B社の受入先の住所（B社経由で届けるとき・任意）",
+//     "stores": [{ "code": "S01", "name": "渋谷店", "address": "東京都渋谷区…" }],
 //     "people": [
-//       { "email": "hq@example.com", "name": "山田 花子", "role": "admin" },
-//       { "email": "shibuya@example.com", "name": "佐藤 美咲", "role": "store", "store": "S01" }
+//       { "email": "admin@example.com", "name": "田中 誠", "role": "admin" },
+//       { "email": "agent@example.com", "name": "山田 花子", "role": "agent" },
+//       { "email": "shibuya@example.com", "name": "佐藤 美咲", "role": "client", "store": "S01" }
 //     ]
 //   }
 //
@@ -19,15 +24,19 @@ import { randomBytes } from 'node:crypto';
 import pg from 'pg';
 import { z } from 'zod';
 import { hashPassword } from '../src/server/auth';
+import { DEFAULT_REQUEST_FIELDS } from '../src/core/intake';
 
 const spec = z
   .object({
     name: z.string().min(1).max(100),
+    client_name: z.string().min(1).max(100),
+    address: z.string().max(200).optional(),
     stores: z
       .array(
         z.object({
           code: z.string().regex(/^[A-Za-z0-9-]{1,20}$/),
           name: z.string().min(1).max(100),
+          address: z.string().max(200).optional(),
         }),
       )
       .default([]),
@@ -36,7 +45,7 @@ const spec = z
         z.object({
           email: z.string().email().toLowerCase(),
           name: z.string().min(1).max(100),
-          role: z.enum(['store', 'buyer', 'admin']),
+          role: z.enum(['client', 'agent', 'admin']),
           store: z.string().optional(),
         }),
       )
@@ -50,10 +59,10 @@ const spec = z
     (s) =>
       s.people.every(
         (p) =>
-          (p.role === 'store') === !!p.store &&
+          (p.role === 'client') === !!p.store &&
           (!p.store || s.stores.some((x) => x.code === p.store)),
       ),
-    'Store staff need "store" set to one of the store codes; headquarters people must not have one.',
+    'A社 staff (client) need "store" set to one of the branch codes; B社 people (agent, admin) must not have one.',
   );
 
 const file = process.argv[2];
@@ -67,15 +76,15 @@ const passwords: [string, string][] = [];
 try {
   await client.query('BEGIN');
   const org = await client.query<{ id: string }>(
-    'INSERT INTO app.organizations (name) VALUES ($1) RETURNING id',
-    [input.name],
+    'INSERT INTO app.organizations (name, client_name, address) VALUES ($1, $2, $3) RETURNING id',
+    [input.name, input.client_name, input.address ?? null],
   );
   const orgId = org.rows[0].id;
   const storeIds = new Map<string, string>();
   for (const st of input.stores) {
     const r = await client.query<{ id: string }>(
-      'INSERT INTO app.stores (org_id, code, name) VALUES ($1, $2, $3) RETURNING id',
-      [orgId, st.code, st.name],
+      'INSERT INTO app.stores (org_id, code, name, address) VALUES ($1, $2, $3, $4) RETURNING id',
+      [orgId, st.code, st.name, st.address ?? null],
     );
     storeIds.set(st.code, r.rows[0].id);
   }
@@ -91,6 +100,21 @@ try {
     );
     passwords.push([p.email, password]);
   }
+  for (const f of DEFAULT_REQUEST_FIELDS)
+    await client.query(
+      `INSERT INTO app.request_fields (org_id, key, label, kind, required, options, help, position)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        orgId,
+        f.key,
+        f.label,
+        f.kind,
+        f.required,
+        f.options,
+        f.help,
+        f.position,
+      ],
+    );
   await client.query('COMMIT');
 } catch (e) {
   await client.query('ROLLBACK');
@@ -99,7 +123,7 @@ try {
   await client.end();
 }
 console.log(
-  `Created ${input.name}: ${input.stores.length} stores, ${input.people.length} people.`,
+  `Created ${input.name} for ${input.client_name}: ${input.stores.length} branches, ${input.people.length} people, ${DEFAULT_REQUEST_FIELDS.length} intake fields.`,
 );
 console.log('First passwords (shown once):');
 for (const [email, password] of passwords)

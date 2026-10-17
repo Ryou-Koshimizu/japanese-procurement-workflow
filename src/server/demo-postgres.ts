@@ -13,7 +13,9 @@ const LOCK_KEY = 72_410_161;
 const RESET_AFTER_MS = 24 * 60 * 60 * 1000;
 const CHECK_EVERY_MS = 10 * 60 * 1000;
 const TABLES =
-  'app.audit_log, app.outbox, app.counters, app.quotes, app.order_lines, app.orders, app.catalog_items, app.catalog_images, app.catalog_sources, app.sessions, app.memberships, app.users, app.stores, app.organizations';
+  'app.audit_log, app.outbox, app.counters, app.quote_costs, app.quotes, app.maker_quotes, app.order_lines, app.order_messages, app.orders, app.makers, app.request_fields, app.catalog_items, app.catalog_images, app.catalog_sources, app.sessions, app.memberships, app.users, app.stores, app.organizations';
+/** The schema version this code expects (app.schema_version() in db/schema.sql). */
+const SCHEMA_VERSION = 2;
 
 export type SharedDemo = {
   db: Database;
@@ -46,10 +48,19 @@ export async function openSharedDemo(
   };
 
   await withLock(async (admin) => {
-    const t = await admin.query<{ t: string | null }>(
-      `SELECT to_regclass('app.organizations')::text AS t`,
+    // The demo database is dedicated to the demo: an older (or missing)
+    // schema is dropped and created again from db/schema.sql.
+    const has = await admin.query<{ f: string | null }>(
+      `SELECT to_regprocedure('app.schema_version()')::text AS f`,
     );
-    if (!t.rows[0].t) await admin.query(schemaSql());
+    const version = has.rows[0].f
+      ? (await admin.query<{ v: number }>('SELECT app.schema_version() AS v'))
+          .rows[0].v
+      : null;
+    if (version !== SCHEMA_VERSION) {
+      await admin.query('DROP SCHEMA IF EXISTS app CASCADE');
+      await admin.query(schemaSql());
+    }
     // On managed PostgreSQL the owner is not a superuser and needs membership
     // to switch to the restricted roles for each request.
     await admin.query('GRANT procurement_user TO CURRENT_USER');

@@ -1,11 +1,28 @@
 // Regressions for the issues the pre-publication review found
-// (docs/security-publication.md). The cart, catalog-ordering and service-level
-// cases went with the cart (schema version 2); see the agency-flow commit.
+// (docs/security-publication.md). The cart and catalog-ordering cases went
+// with the cart (schema version 2).
 import http from 'node:http';
 import zlib from 'node:zlib';
 import type { AddressInfo } from 'node:net';
 import { describe, expect, it } from 'vitest';
-import { fixture, refused } from './helpers';
+import {
+  askMaker,
+  day,
+  deps,
+  fixture,
+  outline,
+  recordMaker,
+  refused,
+  session,
+  submit,
+} from './helpers';
+import {
+  issueQuote,
+  listNotifications,
+  storageKey,
+  submitRequest,
+} from '../src/server/service';
+import { AppError } from '../src/server/db';
 import { createFetcher, isPublicAddress } from '../src/server/net';
 import { parseProductPage } from '../src/core/catalog/html';
 import { cleanText } from '../src/core/catalog/product';
@@ -29,6 +46,68 @@ describe('database roles', () => {
       ),
       '42501',
     );
+  });
+});
+
+const status = (p: Promise<unknown>) =>
+  p.then(
+    () => 'ok',
+    (e) => (e instanceof AppError ? e.status : String(e)),
+  );
+
+describe('services', () => {
+  it('impossible dates are a 4xx, not a server error', async () => {
+    const f = await fixture();
+    const d = deps(f);
+    const answers = [
+      { key: 'item', value: '棚' },
+      { key: 'purpose', value: '収納' },
+      { key: 'place', value: '倉庫' },
+      { key: 'quantity', value: 1 },
+    ];
+    expect(
+      await status(
+        submitRequest(d, session(f, 'sato'), {
+          title: '棚',
+          answers,
+          needed_by: '2026-02-30',
+        }),
+      ),
+    ).toBe(422);
+    const orderId = await submit(f, 'sato');
+    const [line] = await outline(f, orderId, [{ name: '棚', qty: 1 }]);
+    const mq = await askMaker(f, orderId, f.makers.sakura);
+    await recordMaker(f, mq, [{ order_line_id: line, unit_cost: 1000 }]);
+    expect(
+      await status(
+        issueQuote(d, session(f, 'yamada'), orderId, {
+          maker_quote_id: mq,
+          mode: 'markup',
+          markup_bp: 1000,
+          shipping_fee: 0,
+          expenses: 0,
+          valid_until: `${day(30).slice(0, 7)}-32`,
+        }),
+      ),
+    ).toBe(400);
+  });
+
+  it('lists notifications newest first (by number, not as text)', async () => {
+    const f = await fixture();
+    for (let i = 0; i < 6; i++) await submit(f, 'sato', { title: `依頼${i}` });
+    const mails = await listNotifications(deps(f), session(f, 'yamada'));
+    const ids = mails.map((m) => Number(m.id));
+    expect(ids.length).toBe(6);
+    expect(ids).toEqual([...ids].sort((a, b) => b - a));
+    expect(mails[0].subject).toMatch(/^【新しい依頼】渋谷店 依頼5/);
+  });
+
+  it('long catalog keys stay distinct instead of being cut into one', () => {
+    const a = `url:https://shop.example/${'x'.repeat(600)}/a`;
+    const b = `url:https://shop.example/${'x'.repeat(600)}/b`;
+    expect(storageKey(a)).not.toBe(storageKey(b));
+    expect(storageKey(a).length).toBeLessThanOrEqual(500);
+    expect(storageKey('sku:A1')).toBe('sku:A1');
   });
 });
 

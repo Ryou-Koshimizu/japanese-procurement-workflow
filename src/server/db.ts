@@ -17,6 +17,8 @@ export class AppError extends Error {
     readonly status: 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429 | 502 | 503,
     message: string,
     readonly code = 'APP_ERROR',
+    /** Field errors for a form, keyed by field. */
+    readonly fields?: Record<string, string>,
   ) {
     super(message);
   }
@@ -25,26 +27,63 @@ export class AppError extends Error {
 /** Messages for the business rules the database refuses (see db/schema.sql). */
 const RULE_MESSAGES: [RegExp, string][] = [
   [
-    /quote has expired/,
-    '見積の有効期限が切れています。本社に再見積を依頼してください。',
+    /^answer|answers must|malformed answer|duplicate answer|unknown answer/,
+    '依頼フォームの回答を確認してください。',
   ],
-  [/needs at least one line/, '商品を1つ以上入れてください。'],
-  [
-    /no longer in the catalog/,
-    '掲載が終わった商品が含まれています。外してから依頼してください。',
-  ],
-  [/needed-by date is in the past/, '希望納期が過去の日付です。'],
-  [/rejection needs a reason/, '却下の理由を入力してください。'],
+  [/request needs a title/, '件名を入力してください。'],
+  [/needed-by date is in the past/, '「いつまでに」が過去の日付です。'],
+  [/outline needs at least one line/, '商品概要を1行以上入れてください。'],
   [/revision request needs a note/, '修正してほしい内容を入力してください。'],
-  [/quote validity/, '見積の有効期限は今日から180日以内で指定してください。'],
-  [/quote needs 1 to 200 lines/, '見積に含める商品を1つ以上選んでください。'],
-  [/whole unit price and quantity/, '単価と数量は整数で入力してください。'],
-  [/does not match the request/, '見積の明細が依頼の内容と一致しません。'],
+  [/order needs a delivery mode/, '届き方を選んでください。'],
   [
-    /item from another supplier/,
-    '別の仕入先の商品は、別の依頼にしてください。',
+    /delivery date must be today or later/,
+    '納期は今日以降の日付にしてください。',
   ],
-  [/item is not orderable/, 'この商品は現在発注できません。'],
+  [/rejection needs a reason/, 'お断りの理由を入力してください。'],
+  [/message needs text/, '本文を入力してください。'],
+  [/catalog item not found/, 'カタログの商品が見つかりません。'],
+  [/maker is not active/, 'このメーカーは今使われていません。'],
+  [
+    /maker quote validity/,
+    'メーカーの見積の有効期限は今日から180日以内で入力してください。',
+  ],
+  [
+    /maker quote line|maker quote lines must match/,
+    'メーカーの見積の明細が商品概要と合いません。原価は整数の円で入れてください。',
+  ],
+  [
+    /branch is reviewing is based on this maker quote/,
+    'A社が確認中の見積書のもとになっているため、この操作はできません。',
+  ],
+  [/declined maker quote needs a note/, '辞退の理由を入力してください。'],
+  [
+    /maker quote is not for this request/,
+    'このメーカーの見積はこの依頼のものではありません。',
+  ],
+  [
+    /maker quote has not been received/,
+    'まだ受け取っていないメーカーの見積です。',
+  ],
+  [/maker quote has expired/, 'メーカーの見積の有効期限が切れています。'],
+  [
+    /maker quote does not cover the outline/,
+    'メーカーの見積が商品概要のすべての行を含んでいません。',
+  ],
+  [
+    /quote has expired/,
+    '見積書の有効期限が切れています。B社に修正を頼んでください。',
+  ],
+  [/quote validity/, '見積書の有効期限は今日から180日以内で指定してください。'],
+  [
+    /shipping and expenses/,
+    '送料と諸経費は0〜10,000,000円の整数で入力してください。',
+  ],
+  [/markup must be between/, '利益率は0〜300%で入力してください。'],
+  [
+    /prices must cover|unit prices must be whole/,
+    '売値はすべての行に整数の円で入力してください。',
+  ],
+  [/pricing mode/, '利益の載せ方を選んでください。'],
 ];
 
 /** Map database errors raised by RLS, triggers and constraints to HTTP errors. */

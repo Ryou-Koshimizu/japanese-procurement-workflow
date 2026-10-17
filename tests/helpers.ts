@@ -6,6 +6,9 @@ import { createPgliteDatabase } from '../src/server/schema';
 import type { Database, Sql } from '../src/server/db';
 import { DEFAULT_REQUEST_FIELDS } from '../src/core/intake';
 import type { Role } from '../src/core/workflow';
+import type { Session } from '../src/server/auth';
+import type { Deps } from '../src/server/service';
+import { demoSupplierFetcher } from '../src/server/demo-supplier';
 
 export type Person = {
   userId: string;
@@ -357,4 +360,30 @@ export async function refused(
     throw new Error(
       `expected ${code} ${message ?? ''}, got ${e.code}: ${e.message}`,
     );
+}
+
+/** A person's session, as the app builds it at login, for calling the services. */
+export function session(f: Pick<Fixture, 'people'>, who: Who): Session {
+  const p = f.people[who];
+  return {
+    userId: p.userId,
+    orgId: p.orgId,
+    role: p.role,
+    storeId: p.storeId,
+    storeName: null,
+    userName: p.name,
+    email: p.email,
+    orgName: ORG,
+  };
+}
+
+/** Service dependencies on the fixture's database (demo mail: nothing is sent). */
+export function deps(f: Pick<Fixture, 'db'>): Deps {
+  return {
+    db: f.db,
+    fetcher: demoSupplierFetcher(),
+    mail: { kind: 'demo' },
+    origin: null,
+    demo: true,
+  };
 }

@@ -5,6 +5,8 @@ import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { pgDatabase, type Database } from '../src/server/db';
 import { assertRestrictedRole } from '../src/server/runtime';
+import { openSharedDemo } from '../src/server/demo-postgres';
+import { demoSupplierFetcher } from '../src/server/demo-supplier';
 import {
   answerQuote,
   askMaker,
@@ -200,6 +202,50 @@ describe.skipIf(!run)('real PostgreSQL', () => {
 
 // The shared public demo database: needs the demo seed, which is rebuilt for
 // schema version 2 in a later step (src/server/demo-seed.ts still uses v1).
-describe.skip('shared demo database (waits for the v2 demo seed)', () => {
-  it('seeds once, then re-seeds on demand without duplicating anything', () => {});
+describe.skipIf(!run)('shared demo database', () => {
+  it('seeds once, then re-seeds on demand without duplicating anything', async () => {
+    const base = {
+      fetcher: demoSupplierFetcher(),
+      mail: { kind: 'demo' as const },
+      origin: null,
+      demo: true,
+    };
+    const admin = new pg.Client({ connectionString: ADMIN_URL });
+    await admin.connect();
+    await admin.query(`TRUNCATE ${TABLES} RESTART IDENTITY CASCADE`);
+    const a = await openSharedDemo(APP_URL, ADMIN_URL, base);
+    const b = await openSharedDemo(APP_URL, ADMIN_URL, base);
+    try {
+      const count = async (sql: string) =>
+        (await admin.query(sql)).rows[0].n as number;
+      expect(
+        await count('SELECT count(*)::int AS n FROM app.organizations'),
+      ).toBe(1);
+      await a.refresh(true);
+      expect(
+        await count('SELECT count(*)::int AS n FROM app.organizations'),
+      ).toBe(1);
+      expect(
+        await count('SELECT count(*)::int AS n FROM app.catalog_items'),
+      ).toBe(23);
+      expect(await count('SELECT count(*)::int AS n FROM app.makers')).toBe(3);
+      // A request in every state.
+      const statuses = (
+        await admin.query('SELECT DISTINCT status FROM app.orders ORDER BY 1')
+      ).rows.map((r) => r.status);
+      expect(statuses).toEqual([
+        'agreed',
+        'hearing',
+        'quoted',
+        'rejected',
+        'requested',
+        'scheduled',
+        'sourcing',
+      ]);
+    } finally {
+      await admin.end();
+      await a.db.close();
+      await b.db.close();
+    }
+  });
 });

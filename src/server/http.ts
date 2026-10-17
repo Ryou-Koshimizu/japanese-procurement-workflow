@@ -70,7 +70,7 @@ export function route<A extends unknown[]>(
     } catch (e) {
       if (e instanceof AppError)
         return Response.json(
-          { error: e.message, code: e.code },
+          { error: e.message, code: e.code, fields: e.fields },
           { status: e.status },
         );
       console.error(

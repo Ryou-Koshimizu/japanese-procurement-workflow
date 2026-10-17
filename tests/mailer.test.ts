@@ -1,14 +1,25 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { demoWorld, orderBy, type World } from './helpers';
+import {
+  deps,
+  fixture,
+  outline,
+  session,
+  submit,
+  type Fixture,
+} from './helpers';
 import { deliverOutbox, type OutgoingMail } from '../src/server/mailer';
-import { acceptQuote } from '../src/server/service';
+import { requestMakerQuotes } from '../src/server/service';
 import { asMailer } from '../src/server/db';
 
-let w: World;
+let f: Fixture;
 beforeEach(async () => {
-  w = await demoWorld();
-  const o = await orderBy(w, 'R-2026-0003');
-  await acceptQuote(w.deps, w.as.yokohama, o.id, o.current_quote_id);
+  f = await fixture();
+  // 渋谷店 sends a request (B社's two people are told), B社 asks a maker.
+  const orderId = await submit(f, 'sato');
+  await outline(f, orderId, [{ name: '収納棚', qty: 2, unit: '台' }]);
+  await requestMakerQuotes(deps(f), session(f, 'yamada'), orderId, [
+    f.makers.sakura,
+  ]);
 });
 
 describe('delivering the outbox', () => {
@@ -19,23 +30,22 @@ describe('delivering the outbox', () => {
       send: async (m: OutgoingMail) => void sent.push(m),
     };
     const first = await deliverOutbox(
-      w.deps.db,
+      f.db,
       smtp,
       'https://orders.example.com',
       100,
     );
-    expect(first).toEqual({ sent: 4, failed: 0 });
-    // The store (its one staff member), headquarters (two) and the supplier.
+    expect(first).toEqual({ sent: 3, failed: 0 });
     expect(sent.map((m) => m.to).sort()).toEqual([
       'orders@sakura-supply.example',
-      'suzuki@sample-cafe.example',
-      'tanaka@sample-cafe.example',
-      'yamada@sample-cafe.example',
+      'tanaka@midori.example',
+      'yamada@midori.example',
     ]);
-    expect(sent.find((m) => m.to.startsWith('orders@'))!.subject).toMatch(
-      /^【発注書】PO-2026-0002/,
-    );
-    expect(await deliverOutbox(w.deps.db, smtp, null, 100)).toEqual({
+    const rfq = sent.find((m) => m.to.startsWith('orders@'))!;
+    expect(rfq.subject).toMatch(/^【見積のお願い】受付カウンターの入れ替え/);
+    // The maker learns nothing about A社.
+    expect(rfq.text).not.toMatch(/渋谷|サンプルカフェ|sample-cafe/);
+    expect(await deliverOutbox(f.db, smtp, null, 100)).toEqual({
       sent: 0,
       failed: 0,
     });
@@ -48,19 +58,19 @@ describe('delivering the outbox', () => {
         throw new Error('535 auth failed');
       },
     };
-    expect(await deliverOutbox(w.deps.db, failing, null, 100)).toEqual({
+    expect(await deliverOutbox(f.db, failing, null, 100)).toEqual({
       sent: 0,
-      failed: 4,
+      failed: 3,
     });
-    const rows = await w.pg.query<{
+    const rows = await f.owner<{
       status: string;
       last_error: string;
       due: boolean;
     }>(
-      `SELECT status, last_error, next_attempt_at > now() AS due FROM app.outbox WHERE status <> 'demo'`,
+      `SELECT status, last_error, next_attempt_at > now() AS due FROM app.outbox`,
     );
     expect(
-      rows.rows.every(
+      rows.every(
         (r) =>
           r.status === 'failed' && r.last_error === '535 auth failed' && r.due,
       ),
@@ -68,25 +78,25 @@ describe('delivering the outbox', () => {
   });
 
   it('without SMTP settings, everything stays queued', async () => {
-    expect(await deliverOutbox(w.deps.db, { kind: 'none' }, null)).toEqual({
+    expect(await deliverOutbox(f.db, { kind: 'none' }, null)).toEqual({
       sent: 0,
       failed: 0,
     });
-    const r = await w.pg.query<{ n: number }>(
+    const r = await f.owner<{ n: number }>(
       `SELECT count(*)::int AS n FROM app.outbox WHERE status = 'pending'`,
     );
-    expect(r.rows[0].n).toBe(4);
+    expect(r[0].n).toBe(3);
   });
 
   it('the mailer role sees the outbox and nothing else', async () => {
     await expect(
-      asMailer(w.deps.db, (tx) => tx.query('SELECT * FROM app.orders')),
+      asMailer(f.db, (tx) => tx.query('SELECT * FROM app.orders')),
     ).rejects.toThrow();
     await expect(
-      asMailer(w.deps.db, (tx) => tx.query('SELECT name FROM app.users')),
+      asMailer(f.db, (tx) => tx.query('SELECT name FROM app.users')),
     ).rejects.toThrow();
     await expect(
-      asMailer(w.deps.db, (tx) =>
+      asMailer(f.db, (tx) =>
         tx.query(`UPDATE app.outbox SET to_email = 'x@example.com'`),
       ),
     ).rejects.toThrow();
