@@ -86,3 +86,29 @@ export function MiniSteps({ status }: { status: Status }) {
 /** Catalog image URL served by the app (never the supplier's own host). */
 export const imageUrl = (id: string | null | undefined) =>
   id ? `/api/catalog/images/${id}` : null;
+
+/**
+ * A wide table that may scroll sideways on a narrow screen. It is focusable
+ * and named, so keyboard users can scroll it too.
+ */
+export function ScrollX({
+  label,
+  children,
+  style,
+}: {
+  label: string;
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      className="scroll-x"
+      role="region"
+      aria-label={label}
+      tabIndex={0}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}

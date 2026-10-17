@@ -45,6 +45,7 @@ import type { NotificationEvent } from '../../../../src/core/notification';
 import { safeHttpUrl } from '../../../../src/core/intake';
 import { auditText } from '../../../../src/ui/audit';
 import {
+  ScrollX,
   StatusChip,
   formatDate,
   formatDateTime,
@@ -90,7 +91,7 @@ const audienceLabel = {
 function QuoteView({ q }: { q: Quote }) {
   return (
     <>
-      <div className="scroll-x">
+      <ScrollX label={`見積書 第${q.version}版の明細`}>
         <table className="list lines">
           <thead>
             <tr>
@@ -122,7 +123,7 @@ function QuoteView({ q }: { q: Quote }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollX>
       <Totals
         totals={{
           subtotal10: q.subtotal_10,
@@ -584,7 +585,7 @@ export default async function OrderPage({
                 </>
               ) : order.lines.length ? (
                 <>
-                  <div className="scroll-x">
+                  <ScrollX label="商品概要">
                     <table className="list lines">
                       <thead>
                         <tr>
@@ -616,7 +617,7 @@ export default async function OrderPage({
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                  </ScrollX>
                   {may('reopenOutline') && (
                     <div className="actions section">
                       <OutlineReopen orderId={order.id} />
@@ -661,7 +662,10 @@ export default async function OrderPage({
                   </div>
                 )}
                 {received.length > 0 && (
-                  <div className="scroll-x" style={{ marginBottom: 18 }}>
+                  <ScrollX
+                    label="受け取った見積の比較"
+                    style={{ marginBottom: 18 }}
+                  >
                     <table className="list">
                       <caption className="sr-only">
                         受け取った見積の比較
@@ -698,7 +702,7 @@ export default async function OrderPage({
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                  </ScrollX>
                 )}
                 <div className="mq-cards">
                   {order.makerQuotes.map((m) => (

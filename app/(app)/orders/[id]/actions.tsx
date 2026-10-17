@@ -34,6 +34,7 @@ import {
 } from '../../../../src/core/workflow';
 import { ErrorLine, send, useAction } from '../../../../src/ui/form';
 import { MorphButton } from '../../../../src/ui/morph';
+import { ScrollX } from '../../../../src/ui/format';
 import Totals from '../../totals';
 
 const intOr = (s: string) => {
@@ -885,7 +886,7 @@ export function QuoteBuilder({
         </div>
       </div>
 
-      <div className="scroll-x">
+      <ScrollX label="見積書のプレビュー">
         <table className="list lines">
           <caption className="sr-only">見積書のプレビュー</caption>
           <thead>
@@ -936,7 +937,7 @@ export function QuoteBuilder({
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollX>
       <Totals
         totals={totals}
         shippingFee={ship ?? 0}
