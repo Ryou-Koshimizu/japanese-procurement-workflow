@@ -33,7 +33,7 @@ import {
   type Stock,
 } from '../../../../src/core/workflow';
 import { ErrorLine, send, useAction } from '../../../../src/ui/form';
-import { MorphButton } from '../../../../src/ui/morph';
+import { PressButton } from '../../../../src/ui/press-button';
 import { ScrollX } from '../../../../src/ui/format';
 import Totals from '../../totals';
 
@@ -73,7 +73,7 @@ export function MessageForm({
       />
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className={kind === 'note' ? 'btn' : 'btn primary'}
           type="button"
           state={a.state}
@@ -84,7 +84,7 @@ export function MessageForm({
         >
           <Icon className="icon" aria-hidden="true" />
           {button}
-        </MorphButton>
+        </PressButton>
       </div>
     </div>
   );
@@ -329,7 +329,7 @@ export function OutlineEditor({
       )}
       <ErrorLine message={a.error} />
       <div className="actions section">
-        <MorphButton
+        <PressButton
           className="btn primary big"
           type="button"
           state={a.state}
@@ -338,7 +338,7 @@ export function OutlineEditor({
         >
           <CircleCheck className="icon" aria-hidden="true" />
           商品概要を確定する
-        </MorphButton>
+        </PressButton>
         <button
           type="button"
           className="btn"
@@ -384,7 +384,7 @@ export function OutlineReopen({ orderId }: { orderId: string }) {
       </span>
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className="btn"
           type="button"
           state={a.state}
@@ -392,7 +392,7 @@ export function OutlineReopen({ orderId }: { orderId: string }) {
         >
           <PenLine className="icon" aria-hidden="true" />
           商品概要を直す
-        </MorphButton>
+        </PressButton>
         <button
           type="button"
           className="btn ghost"
@@ -448,7 +448,7 @@ export function MakerRequest({
       </div>
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className="btn primary"
           type="button"
           state={a.state}
@@ -461,7 +461,7 @@ export function MakerRequest({
           {picked.length > 1
             ? `${picked.length}社に見積を依頼する`
             : '見積を依頼する'}
-        </MorphButton>
+        </PressButton>
         <span className="meta-line">
           メーカーには商品概要だけをメールで送ります（A社の名前や住所は送りません）。
         </span>
@@ -535,7 +535,7 @@ export function MakerQuoteActions({
         />
         <ErrorLine message={a.error} />
         <div className="actions">
-          <MorphButton
+          <PressButton
             className="btn danger"
             type="button"
             state={a.state}
@@ -546,7 +546,7 @@ export function MakerQuoteActions({
           >
             <Ban className="icon" aria-hidden="true" />
             辞退として記録する
-          </MorphButton>
+          </PressButton>
           <button
             type="button"
             className="btn ghost"
@@ -637,7 +637,7 @@ export function MakerQuoteActions({
       </div>
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className="btn primary"
           type="button"
           state={a.state}
@@ -658,7 +658,7 @@ export function MakerQuoteActions({
         >
           <Save className="icon" aria-hidden="true" />
           {makerName}の見積を記録する
-        </MorphButton>
+        </PressButton>
         <button
           type="button"
           className="btn ghost"
@@ -960,7 +960,7 @@ export function QuoteBuilder({
       </div>
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className="btn primary big"
           type="button"
           state={a.state}
@@ -987,7 +987,7 @@ export function QuoteBuilder({
           <Send className="icon" aria-hidden="true" />
           {requote ? '新しい見積書をA社に送る' : '見積書をA社に送る'}（
           {yen(totals.total)}）
-        </MorphButton>
+        </PressButton>
         <span className="meta-line">
           A社には売値・送料・諸経費・税額・合計だけが届きます。金額はデータベースが計算し直します。
         </span>
@@ -1055,7 +1055,7 @@ export function ClientQuoteResponse({
             合意すると、B社がメーカーに発注します。納期が決まったら「通知」でお知らせします。
           </span>
           <div className="actions">
-            <MorphButton
+            <PressButton
               className="btn primary big"
               type="button"
               state={a.state}
@@ -1065,7 +1065,7 @@ export function ClientQuoteResponse({
             >
               <CircleCheck className="icon" aria-hidden="true" />
               この見積書で合意する
-            </MorphButton>
+            </PressButton>
             <button
               className="btn ghost"
               type="button"
@@ -1093,7 +1093,7 @@ export function ClientQuoteResponse({
             }
           />
           <div className="actions">
-            <MorphButton
+            <PressButton
               className={mode === 'revise' ? 'btn primary' : 'btn danger'}
               type="button"
               state={a.state}
@@ -1115,7 +1115,7 @@ export function ClientQuoteResponse({
                 <Undo2 className="icon" aria-hidden="true" />
               )}
               {mode === 'revise' ? '修正を頼む' : '依頼を取り下げる'}
-            </MorphButton>
+            </PressButton>
             <button
               className="btn ghost"
               type="button"
@@ -1184,20 +1184,21 @@ export function PlaceOrderForm({
       </div>
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className="btn primary big"
           type="button"
           state={a.state}
-          onClick={() =>
-            a.run(`/api/orders/${orderId}/place`, {
-              delivery_mode: mode,
-              delivery_note: note || null,
-            })
+          onClick={(e) =>
+            a.run(
+              `/api/orders/${orderId}/place`,
+              { delivery_mode: mode, delivery_note: note || null },
+              { burstFrom: e.currentTarget },
+            )
           }
         >
           <Truck className="icon" aria-hidden="true" />
           メーカーに発注する
-        </MorphButton>
+        </PressButton>
         <span className="meta-line">
           {makerName ? `${makerName}に` : 'メーカーに'}
           発注番号つきの発注書をメールで送ります。
@@ -1230,7 +1231,7 @@ export function ScheduleForm({
       </div>
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className="btn primary big"
           type="button"
           state={a.state}
@@ -1241,7 +1242,7 @@ export function ScheduleForm({
         >
           <CalendarCheck className="icon" aria-hidden="true" />
           納期を確定してA社に知らせる
-        </MorphButton>
+        </PressButton>
         <span className="meta-line">
           依頼した拠点の担当者に「納期のお知らせ」メールが届きます。
         </span>
@@ -1278,7 +1279,7 @@ export function RejectForm({ orderId }: { orderId: string }) {
       />
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className="btn danger"
           type="button"
           state={a.state}
@@ -1287,7 +1288,7 @@ export function RejectForm({ orderId }: { orderId: string }) {
         >
           <Ban className="icon" aria-hidden="true" />
           お断りする
-        </MorphButton>
+        </PressButton>
         <button
           className="btn ghost"
           type="button"
@@ -1328,7 +1329,7 @@ export function CancelRequest({ orderId }: { orderId: string }) {
       />
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className="btn danger"
           type="button"
           state={a.state}
@@ -1338,7 +1339,7 @@ export function CancelRequest({ orderId }: { orderId: string }) {
         >
           <Undo2 className="icon" aria-hidden="true" />
           取り下げる
-        </MorphButton>
+        </PressButton>
         <button
           className="btn ghost"
           type="button"

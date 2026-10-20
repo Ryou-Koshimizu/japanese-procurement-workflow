@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { PenLine, Plus, Save } from 'lucide-react';
 import type { Maker } from '../../../src/server/service';
 import { ErrorLine, useAction } from '../../../src/ui/form';
-import { MorphButton } from '../../../src/ui/morph';
+import { PressButton } from '../../../src/ui/press-button';
 
 type Draft = {
   name: string;
@@ -133,7 +133,7 @@ function MakerForm({
       </div>
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className="btn primary"
           type="button"
           state={a.state}
@@ -146,7 +146,7 @@ function MakerForm({
             <Save className="icon" aria-hidden="true" />
           )}
           {button}
-        </MorphButton>
+        </PressButton>
         {onCancel && (
           <button type="button" className="btn ghost" onClick={onCancel}>
             やめる

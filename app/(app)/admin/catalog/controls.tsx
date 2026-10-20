@@ -383,7 +383,7 @@ export function SourceCard({
           <dd>
             {source.imported_at
               ? formatDateTime(source.imported_at)
-              : 'まだありません'}
+              : '取り込むと日時が入ります'}
           </dd>
         </dl>
       )}

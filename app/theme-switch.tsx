@@ -86,7 +86,7 @@ export default function ThemeSwitch({
         >
           {theme === value && (
             <span
-              className="lg-ind"
+              className="ind"
               style={{ viewTransitionName: 'theme-ind' }}
               aria-hidden="true"
             />

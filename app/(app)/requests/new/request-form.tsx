@@ -7,7 +7,7 @@ import {
 } from '../../../../src/core/intake';
 import { IntakeField } from '../../../../src/ui/intake-field';
 import { ErrorLine, useAction } from '../../../../src/ui/form';
-import { MorphButton } from '../../../../src/ui/morph';
+import { PressButton } from '../../../../src/ui/press-button';
 
 export default function RequestForm({
   fields,
@@ -67,6 +67,7 @@ export default function RequestForm({
             maxLength={100}
             value={title}
             placeholder="例：受付カウンターの入れ替え"
+            data-first
             aria-invalid={errors._title ? true : undefined}
             aria-describedby={errors._title ? 'title-err' : undefined}
             onChange={(e) => setTitle(e.target.value)}
@@ -123,14 +124,14 @@ export default function RequestForm({
         <ErrorLine message={action.error} />
       </div>
       <div className="actions section">
-        <MorphButton
+        <PressButton
           className="btn primary big"
           type="submit"
           state={action.state}
         >
           <Send className="icon" aria-hidden="true" />
           B社に依頼を送る
-        </MorphButton>
+        </PressButton>
         <span className="meta-line">
           送ると依頼番号が付き、B社に通知が届きます。
         </span>

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { pageSession } from '../../../../src/server/http';
+import { ScrollX } from '../../../../src/ui/format';
 import { runtime } from '../../../../src/server/runtime';
 import { listCatalog, listSources } from '../../../../src/server/service';
 import { localDemoSupplierUrl } from '../../../../src/server/demo-supplier';
@@ -69,7 +70,7 @@ export default async function AdminCatalogPage() {
               税率と単位は取り込み直しても上書きしません。「使う」を外すと商品概要で選べなくなります。
             </p>
           </div>
-          <div className="scroll-x">
+          <ScrollX label="商品">
             <table className="list lines">
               <thead>
                 <tr>
@@ -92,7 +93,7 @@ export default async function AdminCatalogPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollX>
         </section>
       </div>
     </>

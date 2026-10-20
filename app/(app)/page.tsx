@@ -11,7 +11,7 @@ import { pageSession } from '../../src/server/http';
 import { runtime } from '../../src/server/runtime';
 import { listOrders, myTurn, orderStats } from '../../src/server/service';
 import { isAgent, statusLabels, type Status } from '../../src/core/workflow';
-import { yen } from '../../src/ui/format';
+import { CountUp } from '../../src/ui/count-up';
 import OrderRows from './order-rows';
 
 export const dynamic = 'force-dynamic';
@@ -51,7 +51,7 @@ export default async function HomePage() {
           </p>
         </div>
         {!agent && (
-          <a className="btn primary big" href="/requests/new">
+          <a className="btn primary big" href="/requests/new" data-first>
             <SquarePen className="icon" aria-hidden="true" />
             依頼する
           </a>
@@ -59,33 +59,45 @@ export default async function HomePage() {
       </div>
 
       <div className="metrics">
-        <div className="glass metric turn">
+        <a
+          className="metric turn"
+          href={agent ? '/orders?tab=todo' : '#todo'}
+          data-first
+        >
           <span className="m-icon" aria-hidden="true">
             <Sparkles className="icon" />
           </span>
           <small>あなたの番</small>
-          <b className="num">{stats.todo}件</b>
-        </div>
-        <div className="glass metric">
+          <b className="num">
+            <CountUp value={stats.todo} unit="count" />
+          </b>
+        </a>
+        <div className="metric wait">
           <span className="m-icon" aria-hidden="true">
             <Hourglass className="icon" />
           </span>
           <small>{agent ? 'A社の返事待ち' : 'B社の対応待ち'}</small>
-          <b className="num">{stats.waiting}件</b>
+          <b className="num">
+            <CountUp value={stats.waiting} unit="count" />
+          </b>
         </div>
-        <div className="glass metric">
+        <div className="metric month">
           <span className="m-icon" aria-hidden="true">
             <CalendarCheck className="icon" />
           </span>
           <small>今月の納期確定</small>
-          <b className="num">{stats.scheduledThisMonth}件</b>
+          <b className="num">
+            <CountUp value={stats.scheduledThisMonth} unit="count" />
+          </b>
         </div>
-        <div className="glass metric">
+        <div className="metric money">
           <span className="m-icon" aria-hidden="true">
             <JapaneseYen className="icon" />
           </span>
           <small>今月の納期確定の合計（税込）</small>
-          <b className="num">{yen(stats.scheduledThisMonthTotal)}</b>
+          <b className="num">
+            <CountUp value={stats.scheduledThisMonthTotal} unit="yen" />
+          </b>
         </div>
       </div>
 
@@ -131,7 +143,11 @@ export default async function HomePage() {
                 {s.storeName}の依頼（{all.length}）
               </h2>
             </div>
-            <OrderRows rows={all} role={s.role} empty="まだ依頼はありません" />
+            <OrderRows
+              rows={all}
+              role={s.role}
+              empty="依頼を送ると、ここに並びます"
+            />
           </section>
         )}
       </div>

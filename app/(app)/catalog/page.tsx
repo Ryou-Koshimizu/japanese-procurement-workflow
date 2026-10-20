@@ -65,7 +65,7 @@ export default async function CatalogPage({
         )}
       </div>
 
-      <div className="toolbar glass clear">
+      <div className="toolbar">
         {sources.length > 1 && (
           <div className="chips" aria-label="メーカー">
             {sources.map((x) => (
@@ -90,6 +90,7 @@ export default async function CatalogPage({
             defaultValue={q}
             placeholder="商品名・メーカー・品番で探す"
             aria-label="商品を検索"
+            data-first
           />
           <button className="btn" type="submit">
             検索

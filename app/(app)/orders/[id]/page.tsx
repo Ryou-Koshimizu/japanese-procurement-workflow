@@ -390,10 +390,7 @@ export default async function OrderPage({
         </div>
       </div>
 
-      <ol
-        className="progress glass clear"
-        aria-label="依頼から納期確定までの流れ"
-      >
+      <ol className="progress" aria-label="依頼から納期確定までの流れ">
         {PROGRESS_STEPS.map((step, i) => {
           const done = finished || i < at;
           const isNow = !finished && i === at;
@@ -417,19 +414,27 @@ export default async function OrderPage({
               <span style={{ minWidth: 0 }}>
                 <b>{step}</b>
                 <small>
-                  {done ? '済み' : isNow ? statusLabels[st] : 'まだです'}
+                  {done ? '済み' : isNow ? statusLabels[st] : 'これから'}
                 </small>
               </span>
             </li>
           );
         })}
       </ol>
+      <p className="progress-now" aria-hidden="true">
+        <b className="num">
+          {finished
+            ? PROGRESS_STEPS.length
+            : Math.min(at + 1, PROGRESS_STEPS.length)}
+          /{PROGRESS_STEPS.length}
+        </b>
+        {finished
+          ? `${PROGRESS_STEPS[PROGRESS_STEPS.length - 1]}・済み`
+          : `${PROGRESS_STEPS[Math.min(at, PROGRESS_STEPS.length - 1)]}・${statusLabels[st]}`}
+      </p>
 
       {next && (
-        <section
-          className={`next glass ${next.tone}`}
-          aria-label="次にやること"
-        >
+        <section className={`next ${next.tone}`} aria-label="次にやること">
           <span className="n-icon" aria-hidden="true">
             <next.Icon className="icon lg" />
           </span>
@@ -437,7 +442,7 @@ export default async function OrderPage({
           <p>{next.text}</p>
           {next.href && (
             <span className="n-action">
-              <a className="btn primary" href={next.href}>
+              <a className="btn primary" href={next.href} data-first>
                 {next.cta}
                 <ArrowDown className="icon" aria-hidden="true" />
               </a>
@@ -625,7 +630,9 @@ export default async function OrderPage({
                   )}
                 </>
               ) : (
-                <p className="meta-line">まだ商品概要はありません。</p>
+                <p className="meta-line">
+                  B社が商品概要を決めると、ここに表示されます。
+                </p>
               )}
             </section>
           )}
@@ -1001,7 +1008,9 @@ export default async function OrderPage({
               <dt>依頼番号</dt>
               <dd className="num">{order.request_number}</dd>
               <dt>発注番号</dt>
-              <dd className="num">{order.po_number ?? 'まだです'}</dd>
+              <dd className="num">
+                {order.po_number ?? '発注のときに付きます'}
+              </dd>
               <dt>依頼元</dt>
               <dd>
                 {order.client_name} {order.store_name}

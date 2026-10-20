@@ -21,12 +21,11 @@ type Item = {
   Icon: LucideIcon;
   count?: number;
   what?: string;
-  /** Left out of the phone tab bar, which keeps to five items. */
-  wideOnly?: boolean;
+  /** B社 管理者 only: kept in the menu, out of the header bar. */
+  admin?: boolean;
 };
 
-export default function Nav({ role, todo }: { role: Role; todo: number }) {
-  const path = usePathname();
+function items(role: Role, todo: number): Item[] {
   const home: Item = {
     href: '/',
     label: 'ホーム',
@@ -35,42 +34,58 @@ export default function Nav({ role, todo }: { role: Role; todo: number }) {
     what: 'あなたの番の依頼',
   };
   const bell: Item = { href: '/notifications', label: '通知', Icon: Bell };
-  const items: Item[] =
-    role === 'client'
+  if (role === 'client')
+    return [
+      home,
+      { href: '/requests/new', label: '依頼する', Icon: SquarePen },
+      bell,
+    ];
+  return [
+    home,
+    { href: '/orders', label: '依頼', Icon: ListChecks },
+    { href: '/makers', label: 'メーカー', Icon: Factory },
+    { href: '/catalog', label: 'カタログ', Icon: Store },
+    bell,
+    ...(role === 'admin'
       ? [
-          home,
-          { href: '/requests/new', label: '依頼する', Icon: SquarePen },
-          bell,
+          {
+            href: '/admin/fields',
+            label: '依頼フォーム',
+            Icon: TextCursorInput,
+            admin: true,
+          },
+          {
+            href: '/admin/members',
+            label: 'メンバー',
+            Icon: Users,
+            admin: true,
+          },
+          {
+            href: '/admin/audit',
+            label: '監査ログ',
+            Icon: ScrollText,
+            admin: true,
+          },
         ]
-      : [
-          home,
-          { href: '/orders', label: '依頼', Icon: ListChecks },
-          { href: '/makers', label: 'メーカー', Icon: Factory },
-          { href: '/catalog', label: 'カタログ', Icon: Store },
-          bell,
-          ...(role === 'admin'
-            ? [
-                {
-                  href: '/admin/fields',
-                  label: '依頼フォーム',
-                  Icon: TextCursorInput,
-                  wideOnly: true,
-                },
-                {
-                  href: '/admin/members',
-                  label: 'メンバー',
-                  Icon: Users,
-                  wideOnly: true,
-                },
-                {
-                  href: '/admin/audit',
-                  label: '監査ログ',
-                  Icon: ScrollText,
-                  wideOnly: true,
-                },
-              ]
-            : []),
-        ];
+      : []),
+  ];
+}
+
+/**
+ * The menu. "bar" sits in the header on wide screens (without the admin
+ * pages); "panel" is the list in the menu panel: every page on narrow
+ * screens, the admin pages on wide ones.
+ */
+export default function Nav({
+  role,
+  todo,
+  variant,
+}: {
+  role: Role;
+  todo: number;
+  variant: 'bar' | 'panel';
+}) {
+  const path = usePathname();
   // The badge bounces when its number changes, not on every page load.
   const atLoad = useRef(todo).current;
   const active = (href: string) =>
@@ -79,21 +94,25 @@ export default function Nav({ role, todo }: { role: Role; todo: number }) {
       : href === '/orders'
         ? path === '/orders' || path.startsWith('/orders/')
         : path === href || path.startsWith(`${href}/`);
+  const list = items(role, todo).filter((i) => variant === 'panel' || !i.admin);
   return (
-    <nav className="nav" aria-label="メニュー">
-      {items.map(({ href, label, Icon, count, what, wideOnly }) => (
+    <nav
+      className={variant === 'bar' ? 'nav' : 'nav panel-nav'}
+      aria-label={variant === 'bar' ? 'メニュー' : 'すべてのページ'}
+    >
+      {list.map(({ href, label, Icon, count, what, admin }) => (
         <a
           key={href}
           href={href}
           aria-current={active(href) ? 'page' : undefined}
-          className={wideOnly ? 'wide-only' : undefined}
+          className={admin ? 'admin-item' : undefined}
         >
           {active(href) && (
-            // The glass lens over the current item. Between pages the view
-            // transition carries it from the old item to the new one.
+            // The block under the current item. Between pages the view
+            // transition slides it from the old item to the new one.
             <span
-              className="lg-ind"
-              style={{ viewTransitionName: 'nav-ind' }}
+              className="ind"
+              style={variant === 'bar' ? { viewTransitionName: 'nav-ind' } : {}}
               aria-hidden="true"
             />
           )}

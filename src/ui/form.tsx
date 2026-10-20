@@ -1,9 +1,11 @@
 'use client';
-// Sending a change from a screen: the button morphs while the request runs,
-// errors come back in words (and per field when the server names them).
+// Sending a change from a screen: the button stays pressed while the request
+// runs and stamps a check when it succeeds; errors come back in words (and per
+// field when the server names them).
 import { useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
-import { settle, type MorphState } from './morph';
+import { settle, type PressState } from './press-button';
+import { burst, BURST_MS } from './burst';
 
 export class SendError extends Error {
   constructor(
@@ -32,13 +34,18 @@ export async function send(url: string, body?: unknown, method = 'POST') {
 
 /** One action: state for the button, the error, and run() that posts then reloads. */
 export function useAction() {
-  const [state, setState] = useState<MorphState>('idle');
+  const [state, setState] = useState<PressState>('idle');
   const [error, setError] = useState('');
   const [fields, setFields] = useState<Record<string, string>>({});
   const run = async (
     url: string,
     body?: unknown,
-    opts: { method?: string; then?: (json: { result?: unknown }) => void } = {},
+    opts: {
+      method?: string;
+      then?: (json: { result?: unknown }) => void;
+      /** Throw paper from this element when it succeeds (placing an order). */
+      burstFrom?: Element | null;
+    } = {},
   ) => {
     setState('busy');
     setError('');
@@ -46,7 +53,8 @@ export function useAction() {
     try {
       const json = await send(url, body, opts.method);
       setState('done');
-      await settle();
+      if (opts.burstFrom) burst(opts.burstFrom);
+      await settle(opts.burstFrom ? BURST_MS : undefined);
       if (opts.then) opts.then(json);
       else window.location.reload();
     } catch (e) {

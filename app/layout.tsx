@@ -1,20 +1,21 @@
 import '@fontsource-variable/plus-jakarta-sans';
 import '@fontsource-variable/noto-sans-jp';
+import '@fontsource/dela-gothic-one';
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { liquidScript } from '../src/ui/liquid';
+import { motionScript } from '../src/ui/motion';
 
 export const metadata: Metadata = {
   title: '備品発注ワークフロー',
   description:
-    '仕入先サイトからカタログを取り込み、店舗の発注依頼→本社の承認と見積→店舗の承諾→発注確定と金額の通知までを、権限と監査ログつきで処理する業務システム',
+    'A社の拠点の依頼から、B社のヒアリング・メーカーの相見積・見積書・合意・発注・納期のお知らせまでを、権限と監査ログつきで処理する業務システム',
 };
 
 export const viewport: Viewport = {
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ecf2f6' },
-    { media: '(prefers-color-scheme: dark)', color: '#050811' },
+    { media: '(prefers-color-scheme: light)', color: '#fff4e0' },
+    { media: '(prefers-color-scheme: dark)', color: '#16141c' },
   ],
 };
 
@@ -33,9 +34,8 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
-        {/* The moving light behind the glass (src/ui/liquid.ts). */}
-        <canvas id="lg-bg" aria-hidden="true" suppressHydrationWarning />
-        <script dangerouslySetInnerHTML={{ __html: liquidScript }} />
+        {/* Scroll state and the reveal of blocks below the first screen. */}
+        <script dangerouslySetInnerHTML={{ __html: motionScript }} />
         {children}
       </body>
     </html>

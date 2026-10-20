@@ -4,8 +4,8 @@ import { quoteTotals, sellingPrice, yen } from '../src/core/money';
 
 // Runs against the demo (APP_MODE=demo): A社 株式会社サンプルカフェ with three
 // branches, B社 みどり購買サポート and three registered makers, all fictional.
-// The server starts fresh, so the demo holds R-2026-0001…0007 and the request
-// sent here becomes the next number.
+// The server starts fresh, so the demo holds R-2026-0001…0007; each browser
+// (Chromium, WebKit) sends one more request.
 
 /** Wait until the page has hydrated, so a click reaches its handler. */
 async function ready(page: Page) {
@@ -52,7 +52,11 @@ const longDate = (d: string) => {
 test.describe.configure({ mode: 'serial' });
 
 // What the test enters. The costs are B社's; A社 must never see them.
-const TITLE = 'バックヤードの作業台';
+// One request per browser: both projects run against the same server.
+let TITLE = 'バックヤードの作業台';
+test.beforeAll(({}, info) => {
+  TITLE = `バックヤードの作業台（${info.project.name}）`;
+});
 const QUESTION = '作業台の天板は木目とステンレスのどちらがよいですか？';
 const ANSWER = 'ステンレスでお願いします。水を使います。';
 const LINES = [
@@ -223,6 +227,10 @@ test('A社 sees the total, never the costs or the makers, and agrees', async ({
     yen(expected.total),
   );
   await page.getByRole('button', { name: 'この見積書で合意する' }).click();
+  // The status in the heading, not the panel text: before the reload the
+  // panel already says 「…でB社がメーカーに発注します」.
+  await expect(page.locator('h1')).toContainText('B社の発注待ち');
+  await ready(page);
   await expect(page.getByLabel('次にやること')).toContainText(
     'B社がメーカーに発注します',
   );

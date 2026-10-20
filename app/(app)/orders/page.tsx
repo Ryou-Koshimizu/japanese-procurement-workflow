@@ -45,7 +45,7 @@ export default async function OrdersPage({
         </div>
       </div>
       <section className="card" aria-label="依頼">
-        <nav className="tabs" aria-label="絞り込み">
+        <nav className="tabs" aria-label="絞り込み" data-first>
           {tabs.map((t) => (
             <a
               key={t.key}
@@ -54,7 +54,7 @@ export default async function OrdersPage({
             >
               {t.key === tab && (
                 <span
-                  className="lg-ind"
+                  className="ind"
                   style={{ viewTransitionName: 'tab-ind' }}
                   aria-hidden="true"
                 />

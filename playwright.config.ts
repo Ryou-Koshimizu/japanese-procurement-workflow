@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: false,
@@ -9,8 +9,8 @@ export default defineConfig({
     locale: 'ja-JP',
     timezoneId: 'Asia/Tokyo',
     // Check the settled screens: with motion on, axe would measure text while
-    // it is still fading in. Reduce motion is also a supported mode (the
-    // background draws one still frame, nothing animates).
+    // it is still tipping in. Reduce motion is also a supported mode (nothing
+    // animates). The motion itself is checked by hand (docs/verification.md).
     reducedMotion: 'reduce',
     launchOptions: process.env.CHROMIUM_EXECUTABLE_PATH
       ? {
@@ -19,6 +19,14 @@ export default defineConfig({
         }
       : undefined,
   },
+  // The whole suite runs in Chromium and in WebKit (the Safari engine).
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' } },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'], browserName: 'webkit' },
+    },
+  ],
   // E2E_BASE_URL points the tests at a server that is already running.
   webServer: process.env.E2E_BASE_URL
     ? undefined

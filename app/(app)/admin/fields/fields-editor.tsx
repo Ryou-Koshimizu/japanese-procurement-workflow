@@ -17,7 +17,7 @@ import {
 } from '../../../../src/core/intake';
 import { ErrorLine, send, useAction } from '../../../../src/ui/form';
 import { IntakeField } from '../../../../src/ui/intake-field';
-import { MorphButton } from '../../../../src/ui/morph';
+import { PressButton } from '../../../../src/ui/press-button';
 
 type Field = RequestField & { id: string };
 type Draft = {
@@ -128,7 +128,7 @@ function FieldForm({
       </div>
       <ErrorLine message={a.error} />
       <div className="actions">
-        <MorphButton
+        <PressButton
           className="btn primary"
           type="button"
           state={a.state}
@@ -153,7 +153,7 @@ function FieldForm({
             <Save className="icon" aria-hidden="true" />
           )}
           {isNew ? '項目を追加' : '変更を保存'}
-        </MorphButton>
+        </PressButton>
         {onCancel && (
           <button type="button" className="btn ghost" onClick={onCancel}>
             やめる

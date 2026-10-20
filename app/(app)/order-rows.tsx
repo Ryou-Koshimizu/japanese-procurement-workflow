@@ -50,15 +50,8 @@ export default function OrderRows({
                   ? `いつまでに ${formatDate(o.needed_by)}`
                   : ''}
             </div>
-            <div className="progress-cell" style={{ display: 'grid', gap: 6 }}>
-              <span
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                }}
-              >
+            <div className="progress-cell">
+              <span className="row-badges">
                 <StatusChip status={o.status} />
                 {turn && (
                   <span className="turn-badge">
@@ -71,7 +64,7 @@ export default function OrderRows({
             </div>
             <div className="amount num">
               {o.amount !== null ? yen(o.amount) : '—'}
-              <div className="meta-line" style={{ fontWeight: 600 }}>
+              <div className="meta-line">
                 {o.amount_kind === 'agreed'
                   ? '合意額・税込'
                   : o.amount_kind === 'quote'

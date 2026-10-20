@@ -3,6 +3,7 @@ import { pageSession } from '../../../../src/server/http';
 import { runtime } from '../../../../src/server/runtime';
 import { listStores } from '../../../../src/server/service';
 import { roleLabels } from '../../../../src/core/workflow';
+import { ScrollX } from '../../../../src/ui/format';
 import { Building2, Store, Users } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -34,27 +35,30 @@ export default async function MembersPage() {
               B社：{org?.name}
             </h2>
             <p className="meta-line">
-              受入先（B社経由で届けるとき）：{org?.address ?? '未登録'}
+              受入先（B社経由で届けるとき）：
+              {org?.address ?? '登録すると表示されます'}
             </p>
           </div>
-          <table className="list">
-            <thead>
-              <tr>
-                <th>名前</th>
-                <th>メールアドレス</th>
-                <th>役割</th>
-              </tr>
-            </thead>
-            <tbody>
-              {agents.map((m) => (
-                <tr key={m.email}>
-                  <td>{m.name}</td>
-                  <td>{m.email}</td>
-                  <td>{roleLabels[m.role]}</td>
+          <ScrollX label="B社のメンバー">
+            <table className="list">
+              <thead>
+                <tr>
+                  <th>名前</th>
+                  <th>メールアドレス</th>
+                  <th>役割</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {agents.map((m) => (
+                  <tr key={m.email}>
+                    <td>{m.name}</td>
+                    <td>{m.email}</td>
+                    <td>{roleLabels[m.role]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollX>
         </section>
         <section className="card" aria-labelledby="stores-heading">
           <div className="pad" style={{ paddingBottom: 0 }}>
@@ -63,7 +67,7 @@ export default async function MembersPage() {
               A社：{org?.client_name}（{stores.length}拠点）
             </h2>
           </div>
-          <div className="scroll-x">
+          <ScrollX label="A社の拠点">
             <table className="list">
               <thead>
                 <tr>
@@ -90,7 +94,7 @@ export default async function MembersPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollX>
         </section>
         <p className="meta-line">
           拠点・メンバーの追加は <code>npm run org:create</code>

@@ -72,12 +72,6 @@ export default async function NotificationsPage() {
           </p>
         </div>
       </div>
-      {config.mode === 'demo' && (
-        <p className="notice" style={{ marginBottom: 16 }}>
-          <Info className="icon" aria-hidden="true" />
-          公開デモではメールを実際には送らず、送る予定だった内容をここに表示しています。
-        </p>
-      )}
       {unsentLive && (
         <p className="notice" style={{ marginBottom: 16 }}>
           <Info className="icon" aria-hidden="true" />
@@ -87,15 +81,15 @@ export default async function NotificationsPage() {
       {mails.length === 0 ? (
         <div className="card empty">
           <Mail className="icon" aria-hidden="true" />
-          <b>まだ通知はありません</b>
+          <b>通知が届くと、ここに並びます</b>
         </div>
       ) : (
         <div className="mail-list">
-          {mails.map((m) => {
+          {mails.map((m, i) => {
             const Icon = eventIcon[m.event];
             return (
               <details key={m.id} className={`card mail ${m.event}`}>
-                <summary>
+                <summary data-first={i === 0 || undefined}>
                   <span className="m-icon" aria-hidden="true">
                     <Icon className="icon" />
                   </span>
@@ -117,6 +111,12 @@ export default async function NotificationsPage() {
             );
           })}
         </div>
+      )}
+      {config.mode === 'demo' && (
+        <p className="notice" style={{ marginTop: 20 }}>
+          <Info className="icon" aria-hidden="true" />
+          公開デモではメールを実際には送らず、送る予定だった内容をここに表示しています。
+        </p>
       )}
     </>
   );

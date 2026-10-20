@@ -29,7 +29,12 @@ export default async function AuditPage() {
           </p>
         </div>
       </div>
-      <div className="card scroll-x">
+      <div
+        className="card scroll-x"
+        role="region"
+        aria-label="監査ログ"
+        tabIndex={0}
+      >
         <table className="list">
           <thead>
             <tr>
@@ -54,8 +59,8 @@ export default async function AuditPage() {
                     '—'
                   )}
                 </td>
-                <td>{text}</td>
-                <td>{a.actor_name ?? '—'}</td>
+                <td className="wide-cell">{text}</td>
+                <td className="nowrap">{a.actor_name ?? '—'}</td>
               </tr>
             ))}
           </tbody>
