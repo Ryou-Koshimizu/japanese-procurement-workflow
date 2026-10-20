@@ -118,8 +118,10 @@ export function jsonLdBlocks(html: string): unknown[] {
     const raw = html
       .slice(end, close)
       .trim()
+      // An HTML comment may also be closed by "--!>" (the HTML parser
+      // accepts it as an incorrectly closed comment), so strip both.
       .replace(/^<!--/, '')
-      .replace(/-->$/, '')
+      .replace(/--!?>$/, '')
       .replace(/^\/\/\s*<!\[CDATA\[/, '')
       .replace(/\/\/\s*\]\]>$/, '')
       .trim();

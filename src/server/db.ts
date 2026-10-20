@@ -27,7 +27,9 @@ export class AppError extends Error {
 /** Messages for the business rules the database refuses (see db/schema.sql). */
 const RULE_MESSAGES: [RegExp, string][] = [
   [
-    /^answer|answers must|malformed answer|duplicate answer|unknown answer/,
+    // Every intake check in app.normalize_answers starts its message this way;
+    // the group keeps the anchor on all of them, not only the first.
+    /^(?:answer |answers must|malformed answer|duplicate answer|unknown answer)/,
     '依頼フォームの回答を確認してください。',
   ],
   [/request needs a title/, '件名を入力してください。'],
