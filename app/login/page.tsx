@@ -93,10 +93,10 @@ export default async function LoginPage() {
             )}
             <h1 id="hero-title">
               {[
-                '拠点の',
-                '「これがほしい」を、',
-                '発注と',
-                '納期の連絡まで。',
+                '備品の依頼から',
+                '相見積・発注・',
+                '納期の連絡まで',
+                '一つの画面で管理。',
               ].map((p) => (
                 <span key={p} className="phrase">
                   {p}
